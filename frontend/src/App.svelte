@@ -91,9 +91,9 @@
           {carteira.atualizadoEm?.toLocaleTimeString('pt-BR', {
             hour: '2-digit',
             minute: '2-digit',
-          }) ?? 'simuladas'}
+          }) ?? 'últimas conhecidas'}
         </strong><br />
-        brapi · Banco Central (mock)<br />
+        brapi · Banco Central<br />
         <button class="link-sair" onclick={sair}>Sair</button>
       </div>
     </aside>
