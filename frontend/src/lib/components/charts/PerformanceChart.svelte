@@ -6,7 +6,9 @@
   let { serie }: { serie: SerieRentabilidade | null } = $props()
 
   let canvas: HTMLCanvasElement
-  let chart: Chart | undefined
+  // $state.raw: o efeito de atualização precisa re-executar quando o chart
+  // for criado, senão o curto-circuito em !chart impede o rastreamento de serie
+  let chart = $state.raw<Chart | undefined>(undefined)
 
   $effect(() => {
     Chart.defaults.font.family = "'IBM Plex Sans', sans-serif"
@@ -43,11 +45,13 @@
 
   $effect(() => {
     if (!chart || !serie) return
-    chart.data.labels = serie.datas.map(fmtMesAno)
+    // snapshot: Chart.js usa defineProperty nos arrays, o que o proxy do $state proíbe
+    const s = $state.snapshot(serie)
+    chart.data.labels = s.datas.map(fmtMesAno)
     chart.data.datasets = [
       {
         label: 'Carteira',
-        data: serie.carteira,
+        data: s.carteira,
         borderColor: '#1E3A5F',
         backgroundColor: 'rgba(30,58,95,.06)',
         fill: true,
@@ -58,7 +62,7 @@
       },
       {
         label: 'CDI',
-        data: serie.cdi,
+        data: s.cdi,
         borderColor: '#8FA3BC',
         borderDash: [5, 4],
         borderWidth: 1.8,
@@ -67,7 +71,7 @@
       },
       {
         label: 'Ibovespa',
-        data: serie.ibovespa,
+        data: s.ibovespa,
         borderColor: '#B98A2F',
         borderWidth: 1.8,
         pointRadius: 0,

@@ -6,7 +6,9 @@
   let { posicoes }: { posicoes: Posicao[] } = $props()
 
   let canvas: HTMLCanvasElement
-  let chart: Chart<'doughnut'> | undefined
+  // $state.raw: o efeito de atualização precisa re-executar quando o chart
+  // for criado, senão o curto-circuito em !chart impede o rastreamento de posicoes
+  let chart = $state.raw<Chart<'doughnut'> | undefined>(undefined)
 
   $effect(() => {
     chart = new Chart(canvas, {
