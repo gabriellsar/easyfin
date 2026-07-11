@@ -43,5 +43,20 @@
     <button class="btn btn-primary" style="width:100%;justify-content:center" disabled={enviando}>
       {enviando ? 'Entrando…' : 'Entrar'}
     </button>
+    <a class="voltar" href="#/">← Voltar ao site</a>
   </form>
 </div>
+
+<style>
+  .voltar {
+    display: block;
+    text-align: center;
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .voltar:hover {
+    color: var(--ink);
+  }
+</style>

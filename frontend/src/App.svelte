@@ -3,6 +3,7 @@
   import Carteira from './routes/Carteira.svelte'
   import Operacoes from './routes/Operacoes.svelte'
   import Login from './routes/Login.svelte'
+  import Landing from './routes/Landing.svelte'
   import Toast from './lib/components/Toast.svelte'
   import { estaAutenticado, limparSessao } from './lib/api/auth'
   import { carteira } from './lib/state/carteira.svelte'
@@ -15,10 +16,11 @@
     '/operacoes': { pagina: Operacoes, titulo: 'Operações', eyebrow: 'Lançamentos e histórico' },
   } as const
 
-  type Rota = keyof typeof rotas
+  type Rota = keyof typeof rotas | '/login'
 
   function rotaAtual(): Rota {
     const alvo = location.hash.slice(1) || '/'
+    if (alvo === '/login') return '/login'
     return (alvo in rotas ? alvo : '/') as Rota
   }
 
@@ -35,8 +37,14 @@
     if (autenticado) carteira.carregar()
   })
 
-  let meta = $derived(rotas[rota])
-  let Pagina = $derived(rotas[rota].pagina)
+  let rotaApp = $derived(rota === '/login' ? '/' : rota)
+  let meta = $derived(rotas[rotaApp])
+  let Pagina = $derived(rotas[rotaApp].pagina)
+
+  function entrar() {
+    autenticado = true
+    location.hash = '#/'
+  }
 
   async function atualizarCotacoes() {
     await carteira.atualizarCotacoes()
@@ -60,11 +68,16 @@
   function sair() {
     limparSessao()
     autenticado = false
+    location.hash = '#/'
   }
 </script>
 
 {#if !autenticado}
-  <Login aoEntrar={() => (autenticado = true)} />
+  {#if rota === '/login'}
+    <Login aoEntrar={entrar} />
+  {:else}
+    <Landing />
+  {/if}
 {:else}
   <div class="app">
     <aside class="sidebar">
