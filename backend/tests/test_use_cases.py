@@ -13,6 +13,7 @@ from core.entities import (
     SaldoInsuficienteError,
     TipoOperacao,
 )
+from core.use_cases.calcular_rentabilidade import CalcularRentabilidade
 from core.use_cases.consolidar_posicoes import ConsolidarPosicoes
 from core.use_cases.registrar_operacao import RegistrarOperacao
 
@@ -53,7 +54,9 @@ class RepositorioCotacoesFake:
     def fechamento_anterior(self, ticker: str) -> Decimal | None:
         return None
 
-    def salvar(self, ticker: str, preco: Decimal) -> None:
+    def salvar(
+        self, ticker: str, preco: Decimal, fechamento_anterior: Decimal | None = None
+    ) -> None:
         self._cotacoes[ticker] = preco
 
 
@@ -160,3 +163,68 @@ class TestConsolidarPosicoes:
         posicoes = self._consolidar([_compra("100", "36.10")])
         assert posicoes[0].valor_mercado is None
         assert posicoes[0].resultado_pct is None
+
+
+class ProvedorFake:
+    """Provedor sem série 'carteira' pronta — força o cálculo no domínio."""
+
+    def __init__(self, precos: dict[str, dict[date, Decimal]] | None = None) -> None:
+        self._precos = precos or {}
+
+    def cotacao_atual(self, ticker: str) -> Decimal | None:
+        return None
+
+    def fechamento_anterior(self, ticker: str) -> Decimal | None:
+        return None
+
+    def serie_indice(self, indice: str, inicio: date, fim: date) -> dict[date, Decimal]:
+        return {}
+
+    def serie_precos(self, ticker: str, inicio: date, fim: date) -> dict[date, Decimal]:
+        return self._precos.get(ticker, {})
+
+
+class TestCalcularRentabilidade:
+    HOJE = date(2026, 7, 15)  # janela de 3 meses: abr, mai, jun/2026
+
+    def _executar(self, operacoes, precos):
+        repo = RepositorioOperacoesFake()
+        for op in operacoes:
+            repo.salvar(op)
+        uc = CalcularRentabilidade(repo, ProvedorFake(precos))
+        return uc.executar(meses=3, hoje=self.HOJE)
+
+    def test_carteira_calculada_por_dietz_mensal(self):
+        # compra em abril; preço sobe 10% em maio e fica estável em junho
+        op = Operacao(
+            ticker="PETR4",
+            tipo=TipoOperacao.COMPRA,
+            quantidade=Decimal("100"),
+            preco_unitario=Decimal("10"),
+            data=date(2026, 4, 10),
+        )
+        precos = {
+            "PETR4": {
+                date(2026, 4, 1): Decimal("10"),
+                date(2026, 5, 1): Decimal("11"),
+                date(2026, 6, 1): Decimal("11"),
+            }
+        }
+        serie = self._executar([op], precos)
+        assert serie["datas"] == [date(2026, 4, 1), date(2026, 5, 1), date(2026, 6, 1)]
+        assert serie["carteira"] == pytest.approx([0.0, 10.0, 10.0])
+
+    def test_ticker_sem_historico_usa_preco_medio_e_nao_rende(self):
+        op = Operacao(
+            ticker="PETR4",
+            tipo=TipoOperacao.COMPRA,
+            quantidade=Decimal("10"),
+            preco_unitario=Decimal("100"),
+            data=date(2026, 4, 10),
+        )
+        serie = self._executar([op], precos={})
+        assert serie["carteira"] == pytest.approx([0.0, 0.0, 0.0])
+
+    def test_sem_operacoes_serie_zerada(self):
+        serie = self._executar([], precos={})
+        assert serie["carteira"] == pytest.approx([0.0, 0.0, 0.0])
