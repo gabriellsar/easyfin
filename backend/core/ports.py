@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Protocol
 
-from core.entities import Ativo, Operacao
+from core.entities import Ativo, Operacao, Posicao
 
 
 class RepositorioAtivos(Protocol):
@@ -21,8 +21,22 @@ class RepositorioOperacoes(Protocol):
     def listar_todas(self) -> list[Operacao]: ...
 
 
+class RepositorioCotacoes(Protocol):
+    """Última cotação conhecida de cada ativo (marcação a mercado persistida)."""
+
+    def cotacao_atual(self, ticker: str) -> Decimal | None: ...
+
+    def fechamento_anterior(self, ticker: str) -> Decimal | None: ...
+
+    def salvar(self, ticker: str, preco: Decimal) -> None: ...
+
+
 class ProvedorCotacoes(Protocol):
-    """Cotações de mercado (brapi para B3/IBOV, BCB para CDI/SELIC)."""
+    """Fonte externa de cotações (brapi para B3/IBOV, BCB para CDI/SELIC).
+
+    Hoje implementado por MockProvedorCotacoes; os clientes reais em
+    infrastructure/market_data/ o substituirão sem mudar o domínio.
+    """
 
     def cotacao_atual(self, ticker: str) -> Decimal: ...
 
@@ -30,4 +44,4 @@ class ProvedorCotacoes(Protocol):
 
 
 class GeradorRelatorio(Protocol):
-    def gerar(self, posicoes: list, operacoes: list[Operacao]) -> bytes: ...
+    def gerar(self, posicoes: list[Posicao], operacoes: list[Operacao]) -> bytes: ...
