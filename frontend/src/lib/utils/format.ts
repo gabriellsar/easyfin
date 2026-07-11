@@ -30,6 +30,13 @@ export const fmtMesAno = (iso: string) => {
   return mes.charAt(0).toUpperCase() + mes.slice(1) + '/' + String(d.getFullYear()).slice(2)
 }
 
+/** "2025-07-01" -> "Jul 2025" (período dos KPIs) */
+export const fmtMesAnoLongo = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00`)
+  const mes = d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  return mes.charAt(0).toUpperCase() + mes.slice(1) + ' ' + d.getFullYear()
+}
+
 /** Rótulos de exibição das classes de ativo (a API usa slugs). */
 export const CLASSE_LABEL: Record<string, string> = {
   acao: 'Ações',
