@@ -2,7 +2,10 @@
   import type { ResumoCarteira } from '../api/carteira'
   import { fmtBRL, fmtPct, fmtPctAbs } from '../utils/format'
 
-  let { resumo }: { resumo: ResumoCarteira | null } = $props()
+  let {
+    resumo,
+    periodo = null,
+  }: { resumo: ResumoCarteira | null; periodo?: string | null } = $props()
 
   let diaPositivo = $derived(resumo ? Number(resumo.resultado_dia) >= 0 : true)
 </script>
@@ -31,7 +34,7 @@
   <div class="card">
     <div class="kpi-label">Rentabilidade 12m</div>
     <div class="kpi-value">{resumo ? fmtPct(resumo.rentabilidade_12m) : '—'}</div>
-    <div class="kpi-note">acumulada nos últimos 12 meses</div>
+    <div class="kpi-note">{periodo ?? 'acumulada nos últimos 12 meses'}</div>
   </div>
   <div class="card">
     <div class="kpi-label">Retorno vs CDI</div>

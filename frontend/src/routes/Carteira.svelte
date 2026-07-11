@@ -1,13 +1,15 @@
 <script lang="ts">
   import PositionsTable from '../lib/components/PositionsTable.svelte'
   import { carteira } from '../lib/state/carteira.svelte'
-  import { classeLabel } from '../lib/utils/format'
+  import { classeLabel, CLASSE_LABEL } from '../lib/utils/format'
 
   let filtro = $state('Todas')
 
   let classes = $derived([
     'Todas',
-    ...[...new Set(carteira.posicoes.map((p) => classeLabel(p.classe)))],
+    ...Object.values(CLASSE_LABEL).filter((rotulo) =>
+      carteira.posicoes.some((p) => classeLabel(p.classe) === rotulo),
+    ),
   ])
   let posicoesFiltradas = $derived(
     filtro === 'Todas'

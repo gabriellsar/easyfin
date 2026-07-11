@@ -44,16 +44,17 @@
   }
 
   async function exportarExcel() {
-    if (carteira.fonte === 'simulada') {
-      toast.mostrar('Exportação disponível quando o back-end estiver completo')
-      return
-    }
     try {
       await baixarRelatorioExcel()
       toast.mostrar('Relatório exportado: EasyFin_relatorio.xlsx')
     } catch {
       toast.mostrar('Não foi possível gerar o Excel.')
     }
+  }
+
+  function novaOperacao() {
+    location.hash = '#/operacoes'
+    setTimeout(() => document.getElementById('opQty')?.focus(), 60)
   }
 
   function sair() {
@@ -87,14 +88,12 @@
       </nav>
       <div class="sidebar-foot">
         Cotações · <strong>
-          {carteira.fonte === 'simulada'
-            ? 'simuladas'
-            : (carteira.atualizadoEm?.toLocaleTimeString('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              }) ?? 'ao vivo')}
+          {carteira.atualizadoEm?.toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }) ?? 'simuladas'}
         </strong><br />
-        brapi · Banco Central{carteira.fonte === 'simulada' ? ' (mock)' : ''}<br />
+        brapi · Banco Central (mock)<br />
         <button class="link-sair" onclick={sair}>Sair</button>
       </div>
     </aside>
@@ -114,12 +113,13 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>
             Exportar Excel
           </button>
-          <button class="btn btn-primary" onclick={() => (location.hash = '#/operacoes')}>
-            Nova operação
-          </button>
+          <button class="btn btn-primary" onclick={novaOperacao}>Nova operação</button>
         </div>
       </div>
 
+      {#if carteira.erro}
+        <div class="form-error">{carteira.erro}</div>
+      {/if}
       <Pagina />
     </main>
   </div>

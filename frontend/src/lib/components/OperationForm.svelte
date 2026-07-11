@@ -7,7 +7,6 @@
   import { carteira } from '../state/carteira.svelte'
   import { toast } from '../state/toast.svelte'
   import { fmtBRL, fmtQty } from '../utils/format'
-  import { cotacaoMock } from '../api/mock'
 
   let tipo = $state<TipoOperacao>('compra')
   let ticker = $state('')
@@ -17,19 +16,19 @@
   let erro = $state<string | null>(null)
   let enviando = $state(false)
 
-  $effect(() => {
-    if (!ticker && carteira.ativos.length) ticker = carteira.ativos[0].ticker
-  })
-
   let posicaoAtual = $derived(carteira.posicoes.find((p) => p.ticker === ticker))
 
-  function aoTrocarAtivo() {
-    const cot =
-      carteira.fonte === 'simulada'
-        ? cotacaoMock(ticker)
-        : Number(posicaoAtual?.cotacao_atual ?? '')
-    if (cot) preco = cot.toFixed(2)
+  function prefillPreco() {
+    const cot = carteira.ativos.find((a) => a.ticker === ticker)?.cotacao_atual
+    if (cot) preco = Number(cot).toFixed(2)
   }
+
+  $effect(() => {
+    if (!ticker && carteira.ativos.length) {
+      ticker = carteira.ativos[0].ticker
+      prefillPreco()
+    }
+  })
 
   async function submeter() {
     erro = null
@@ -96,7 +95,7 @@
 
   <div class="field">
     <label for="opAsset">Ativo</label>
-    <select id="opAsset" bind:value={ticker} onchange={aoTrocarAtivo}>
+    <select id="opAsset" bind:value={ticker} onchange={prefillPreco}>
       {#each carteira.ativos as a (a.ticker)}
         <option value={a.ticker}>{a.ticker} — {a.nome}</option>
       {/each}
