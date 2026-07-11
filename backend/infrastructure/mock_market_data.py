@@ -1,7 +1,7 @@
 """Provedor de cotações SIMULADO — implementa core.ports.ProvedorCotacoes.
 
 Substitui temporariamente os clientes reais de infrastructure/market_data/
-(brapi e BCB). Os dados são os do protótipo easyfin-ui.html: cotações base,
+(brapi e BCB). Os dados são: cotações base,
 séries acumuladas de 12 meses e uma variação aleatória pequena a cada
 atualização, partindo da última cotação persistida.
 """
@@ -59,6 +59,19 @@ class MockProvedorCotacoes:
         )
         return (ultima * (1 + drift)).quantize(Decimal("0.01"))
 
+    def fechamento_anterior(self, ticker: str) -> Decimal | None:
+        armazenado = (
+            Cotacao.objects.filter(ativo__ticker=ticker)
+            .values_list("fechamento_anterior", flat=True)
+            .first()
+        )
+        return armazenado or FECHAMENTO_ANTERIOR.get(ticker)
+
     def serie_indice(self, indice: str, inicio: date, fim: date) -> dict[date, Decimal]:
         serie = SERIES.get(indice, {})
         return {d: v for d, v in serie.items() if inicio <= d <= fim}
+
+    def serie_precos(self, ticker: str, inicio: date, fim: date) -> dict[date, Decimal]:
+        # O mock fornece a série 'carteira' pronta em serie_indice, então o
+        # domínio não precisa de preços históricos simulados.
+        return {}

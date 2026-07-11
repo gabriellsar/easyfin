@@ -77,3 +77,7 @@ class SaldoInsuficienteError(Exception):
 
 class AtivoInexistenteError(Exception):
     """Operação sobre ticker não cadastrado."""
+
+
+class FonteExternaError(Exception):
+    """Falha de comunicação com uma fonte externa de dados (brapi/BCB)."""

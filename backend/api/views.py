@@ -19,11 +19,16 @@ from api.serializers import (
 )
 from core.entities import (
     AtivoInexistenteError,
+    FonteExternaError,
     Operacao as OperacaoEntidade,
     SaldoInsuficienteError,
     TipoOperacao,
 )
 from portfolio.models import Ativo, Operacao
+
+RESPOSTA_FONTE_INDISPONIVEL = {
+    "detail": "Fonte externa de cotações indisponível no momento. Tente novamente."
+}
 
 
 class AtivoListView(ListAPIView):
@@ -92,7 +97,12 @@ class PosicaoListView(APIView):
 
 class CarteiraResumoView(APIView):
     def get(self, request):
-        resumo = deps.resumo_carteira().executar()
+        try:
+            resumo = deps.resumo_carteira().executar()
+        except FonteExternaError:
+            return Response(
+                RESPOSTA_FONTE_INDISPONIVEL, status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
         return Response(
             {
                 "patrimonio": str(resumo["patrimonio"].quantize(Decimal("0.01"))),
@@ -121,7 +131,12 @@ class CarteiraRentabilidadeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serie = deps.calcular_rentabilidade().executar(meses=meses)
+        try:
+            serie = deps.calcular_rentabilidade().executar(meses=meses)
+        except FonteExternaError:
+            return Response(
+                RESPOSTA_FONTE_INDISPONIVEL, status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
         return Response(
             {
                 "datas": [d.isoformat() for d in serie["datas"]],
@@ -134,7 +149,12 @@ class CarteiraRentabilidadeView(APIView):
 
 class CotacoesAtualizarView(APIView):
     def post(self, request):
-        atualizados = deps.atualizar_cotacoes().executar()
+        try:
+            atualizados = deps.atualizar_cotacoes().executar()
+        except FonteExternaError:
+            return Response(
+                RESPOSTA_FONTE_INDISPONIVEL, status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
         return Response({"atualizados": atualizados})
 
 

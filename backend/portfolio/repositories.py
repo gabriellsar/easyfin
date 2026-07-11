@@ -73,6 +73,11 @@ class RepositorioCotacoesDjango:
             .first()
         )
 
-    def salvar(self, ticker: str, preco: Decimal) -> None:
+    def salvar(
+        self, ticker: str, preco: Decimal, fechamento_anterior: Decimal | None = None
+    ) -> None:
         ativo = models.Ativo.objects.get(ticker=ticker)
-        models.Cotacao.objects.update_or_create(ativo=ativo, defaults={"preco": preco})
+        defaults: dict = {"preco": preco}
+        if fechamento_anterior is not None:
+            defaults["fechamento_anterior"] = fechamento_anterior
+        models.Cotacao.objects.update_or_create(ativo=ativo, defaults=defaults)

@@ -28,19 +28,32 @@ class RepositorioCotacoes(Protocol):
 
     def fechamento_anterior(self, ticker: str) -> Decimal | None: ...
 
-    def salvar(self, ticker: str, preco: Decimal) -> None: ...
+    def salvar(
+        self, ticker: str, preco: Decimal, fechamento_anterior: Decimal | None = None
+    ) -> None: ...
 
 
 class ProvedorCotacoes(Protocol):
     """Fonte externa de cotações (brapi para B3/IBOV, BCB para CDI/SELIC).
 
-    Hoje implementado por MockProvedorCotacoes; os clientes reais em
-    infrastructure/market_data/ o substituirão sem mudar o domínio.
+    Selecionada em api/deps.py via MARKET_DATA_PROVIDER:
+    ProvedorCotacoesB3Bcb (real) ou MockProvedorCotacoes.
     """
 
-    def cotacao_atual(self, ticker: str) -> Decimal: ...
+    def cotacao_atual(self, ticker: str) -> Decimal | None:
+        """Preço atual, ou None se a fonte não conhece o ticker."""
+        ...
 
-    def serie_indice(self, indice: str, inicio: date, fim: date) -> dict[date, Decimal]: ...
+    def fechamento_anterior(self, ticker: str) -> Decimal | None: ...
+
+    def serie_indice(self, indice: str, inicio: date, fim: date) -> dict[date, Decimal]:
+        """Série mensal acumulada em % (base 0 no primeiro mês) de um índice
+        ('cdi', 'selic', 'ibovespa', 'carteira'). Vazia se indisponível."""
+        ...
+
+    def serie_precos(self, ticker: str, inicio: date, fim: date) -> dict[date, Decimal]:
+        """Fechamentos mensais ajustados do ticker (chave = 1º dia do mês)."""
+        ...
 
 
 class GeradorRelatorio(Protocol):
