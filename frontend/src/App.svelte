@@ -44,10 +44,6 @@
   }
 
   async function exportarExcel() {
-    if (carteira.fonte === 'simulada') {
-      toast.mostrar('Exportação disponível quando o back-end estiver completo')
-      return
-    }
     try {
       await baixarRelatorioExcel()
       toast.mostrar('Relatório exportado: EasyFin_relatorio.xlsx')
@@ -92,14 +88,12 @@
       </nav>
       <div class="sidebar-foot">
         Cotações · <strong>
-          {carteira.fonte === 'simulada'
-            ? 'simuladas'
-            : (carteira.atualizadoEm?.toLocaleTimeString('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              }) ?? 'ao vivo')}
+          {carteira.atualizadoEm?.toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }) ?? 'simuladas'}
         </strong><br />
-        brapi · Banco Central{carteira.fonte === 'simulada' ? ' (mock)' : ''}<br />
+        brapi · Banco Central (mock)<br />
         <button class="link-sair" onclick={sair}>Sair</button>
       </div>
     </aside>
@@ -123,6 +117,9 @@
         </div>
       </div>
 
+      {#if carteira.erro}
+        <div class="form-error">{carteira.erro}</div>
+      {/if}
       <Pagina />
     </main>
   </div>

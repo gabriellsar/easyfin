@@ -7,7 +7,6 @@
   import { carteira } from '../state/carteira.svelte'
   import { toast } from '../state/toast.svelte'
   import { fmtBRL, fmtQty } from '../utils/format'
-  import { cotacaoMock } from '../api/mock'
 
   let tipo = $state<TipoOperacao>('compra')
   let ticker = $state('')
@@ -20,11 +19,8 @@
   let posicaoAtual = $derived(carteira.posicoes.find((p) => p.ticker === ticker))
 
   function prefillPreco() {
-    const cot =
-      carteira.fonte === 'simulada'
-        ? cotacaoMock(ticker)
-        : Number(posicaoAtual?.cotacao_atual ?? '')
-    if (cot) preco = cot.toFixed(2)
+    const cot = carteira.ativos.find((a) => a.ticker === ticker)?.cotacao_atual
+    if (cot) preco = Number(cot).toFixed(2)
   }
 
   $effect(() => {
