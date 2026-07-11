@@ -43,6 +43,9 @@ class Cotacao(models.Model):
 
     ativo = models.OneToOneField(Ativo, on_delete=models.CASCADE, related_name="cotacao")
     preco = models.DecimalField(max_digits=18, decimal_places=6)
+    fechamento_anterior = models.DecimalField(
+        max_digits=18, decimal_places=6, null=True, blank=True
+    )
     atualizado_em = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:

@@ -4,9 +4,14 @@ from portfolio.models import Ativo, Operacao
 
 
 class AtivoSerializer(serializers.ModelSerializer):
+    cotacao_atual = serializers.SerializerMethodField()
+
     class Meta:
         model = Ativo
-        fields = ["id", "ticker", "nome", "classe"]
+        fields = ["id", "ticker", "nome", "classe", "cotacao_atual"]
+
+    def get_cotacao_atual(self, obj) -> str | None:
+        return str(obj.cotacao.preco) if hasattr(obj, "cotacao") else None
 
 
 class OperacaoSerializer(serializers.ModelSerializer):

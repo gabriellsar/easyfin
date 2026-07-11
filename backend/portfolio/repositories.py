@@ -3,6 +3,8 @@
 Convertem models <-> entidades: o domínio nunca vê um model do Django.
 """
 
+from decimal import Decimal
+
 from core import entities
 from portfolio import models
 
@@ -37,8 +39,15 @@ class RepositorioAtivosDjango:
 
 class RepositorioOperacoesDjango:
     def salvar(self, operacao: entities.Operacao) -> entities.Operacao:
-        # TODO(passo 2): persistir e devolver a entidade com id preenchido.
-        raise NotImplementedError
+        ativo = models.Ativo.objects.get(ticker=operacao.ticker)
+        model = models.Operacao.objects.create(
+            ativo=ativo,
+            tipo=operacao.tipo.value,
+            quantidade=operacao.quantidade,
+            preco_unitario=operacao.preco_unitario,
+            data=operacao.data,
+        )
+        return _operacao_para_entidade(model)
 
     def listar_por_ticker(self, ticker: str) -> list[entities.Operacao]:
         qs = models.Operacao.objects.select_related("ativo").filter(ativo__ticker=ticker)
@@ -47,3 +56,23 @@ class RepositorioOperacoesDjango:
     def listar_todas(self) -> list[entities.Operacao]:
         qs = models.Operacao.objects.select_related("ativo").all()
         return [_operacao_para_entidade(m) for m in qs]
+
+
+class RepositorioCotacoesDjango:
+    def cotacao_atual(self, ticker: str) -> Decimal | None:
+        return (
+            models.Cotacao.objects.filter(ativo__ticker=ticker)
+            .values_list("preco", flat=True)
+            .first()
+        )
+
+    def fechamento_anterior(self, ticker: str) -> Decimal | None:
+        return (
+            models.Cotacao.objects.filter(ativo__ticker=ticker)
+            .values_list("fechamento_anterior", flat=True)
+            .first()
+        )
+
+    def salvar(self, ticker: str, preco: Decimal) -> None:
+        ativo = models.Ativo.objects.get(ticker=ticker)
+        models.Cotacao.objects.update_or_create(ativo=ativo, defaults={"preco": preco})

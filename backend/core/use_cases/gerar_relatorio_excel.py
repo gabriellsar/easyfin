@@ -16,6 +16,6 @@ class GerarRelatorioExcel:
         self._gerador = gerador
 
     def executar(self) -> bytes:
-        # TODO(passo 5): consolidar posições, listar operações e delegar
-        # ao gerador (openpyxl) a escrita do arquivo.
-        raise NotImplementedError
+        posicoes = self._consolidar_posicoes.executar()
+        operacoes = self._repo_operacoes.listar_todas()
+        return self._gerador.gerar(posicoes, operacoes)

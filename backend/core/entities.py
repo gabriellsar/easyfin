@@ -64,6 +64,12 @@ class Posicao:
             return None
         return self.valor_mercado - self.custo_total
 
+    @property
+    def resultado_pct(self) -> Decimal | None:
+        if self.valor_mercado is None or self.custo_total == 0:
+            return None
+        return (self.valor_mercado / self.custo_total - 1) * 100
+
 
 class SaldoInsuficienteError(Exception):
     """Venda com quantidade maior que a disponível em carteira."""
