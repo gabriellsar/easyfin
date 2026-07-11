@@ -4,21 +4,28 @@
   import PerformanceChart from '../lib/components/charts/PerformanceChart.svelte'
   import AllocationDonut from '../lib/components/charts/AllocationDonut.svelte'
   import { carteira } from '../lib/state/carteira.svelte'
-  import { fmtBRL, fmtPct, fmtQty } from '../lib/utils/format'
+  import { fmtBRL, fmtPct, fmtQty, fmtMesAno, fmtMesAnoLongo } from '../lib/utils/format'
 
   let top5 = $derived(
     [...carteira.posicoes]
       .sort((a, b) => Number(b.valor_mercado ?? 0) - Number(a.valor_mercado ?? 0))
       .slice(0, 5),
   )
+  let datas = $derived(carteira.serie?.datas ?? [])
+  let periodo = $derived(
+    datas.length ? `${fmtMesAnoLongo(datas[0])} — ${fmtMesAnoLongo(datas.at(-1)!)}` : null,
+  )
 </script>
 
-<KpiCards resumo={carteira.resumo} />
+<KpiCards resumo={carteira.resumo} {periodo} />
 
 <div class="grid-2">
   <div class="card">
     <h3>Evolução acumulada — 12 meses</h3>
-    <div class="sub">Carteira comparada aos benchmarks (base 0% no primeiro mês)</div>
+    <div class="sub">
+      Carteira comparada aos benchmarks
+      {datas.length ? `(base 0% em ${fmtMesAno(datas[0])})` : ''}
+    </div>
     <PerformanceChart serie={carteira.serie} />
   </div>
   <div class="card">
