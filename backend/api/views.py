@@ -1,6 +1,3 @@
-"""Views DRF — só orquestram: validam entrada, chamam o caso de uso e
-serializam a saída. Nenhuma regra de negócio aqui."""
-
 from decimal import Decimal
 from io import BytesIO
 
