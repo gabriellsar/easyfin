@@ -116,3 +116,39 @@ def test_relatorio_excel(client_autenticado, petr4):
     assert resp.status_code == 200
     conteudo = b"".join(resp.streaming_content)
     assert conteudo[:2] == b"PK"  # assinatura zip do .xlsx
+
+
+def _registro(username="novo_usuario", password="SenhaForte#2026", email="novo@example.com"):
+    return {"username": username, "email": email, "password": password}
+
+
+def test_registro_cria_usuario_e_devolve_tokens(db):
+    resp = APIClient().post("/api/auth/registro/", _registro(), format="json")
+    assert resp.status_code == 201
+    assert resp.data["username"] == "novo_usuario"
+    assert "access" in resp.data and "refresh" in resp.data
+    assert User.objects.filter(username="novo_usuario").exists()
+
+    # o token devolvido já autentica
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {resp.data['access']}")
+    assert client.get("/api/ativos/").status_code == 200
+
+
+def test_registro_username_duplicado_retorna_400(db):
+    User.objects.create_user(username="repetido", password="SenhaForte#2026")
+    resp = APIClient().post("/api/auth/registro/", _registro(username="Repetido"), format="json")
+    assert resp.status_code == 400
+    assert "username" in resp.data
+
+
+def test_registro_senha_fraca_retorna_400(db):
+    resp = APIClient().post("/api/auth/registro/", _registro(password="123"), format="json")
+    assert resp.status_code == 400
+    assert "password" in resp.data
+
+
+def test_registro_email_opcional(db):
+    dados = {"username": "sem_email", "password": "SenhaForte#2026"}
+    resp = APIClient().post("/api/auth/registro/", dados, format="json")
+    assert resp.status_code == 201

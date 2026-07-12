@@ -10,12 +10,16 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from api import deps
 from api.serializers import (
     AtivoSerializer,
     OperacaoCreateSerializer,
     OperacaoSerializer,
     PosicaoSerializer,
+    RegistroSerializer,
 )
 from core.entities import (
     AtivoInexistenteError,
@@ -31,14 +35,37 @@ RESPOSTA_FONTE_INDISPONIVEL = {
 }
 
 
+class RegistroView(APIView):
+    """Criação de conta — público. Devolve o par JWT para login imediato."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RegistroSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        usuario = serializer.save()
+        tokens = RefreshToken.for_user(usuario)
+        return Response(
+            {
+                "username": usuario.username,
+                "access": str(tokens.access_token),
+                "refresh": str(tokens),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class AtivoListView(ListAPIView):
     queryset = Ativo.objects.select_related("cotacao").all()
     serializer_class = AtivoSerializer
 
 
 class OperacaoListCreateView(ListAPIView):
-    queryset = Operacao.objects.select_related("ativo").all()
     serializer_class = OperacaoSerializer
+
+    def get_queryset(self):
+        return Operacao.objects.select_related("ativo").filter(usuario=self.request.user)
 
     def post(self, request):
         entrada = OperacaoCreateSerializer(data=request.data)
@@ -53,7 +80,7 @@ class OperacaoListCreateView(ListAPIView):
             data=dados["data"],
         )
         try:
-            criada = deps.registrar_operacao().executar(entidade)
+            criada = deps.registrar_operacao(request.user).executar(entidade)
         except (AtivoInexistenteError, SaldoInsuficienteError, ValueError) as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -72,7 +99,7 @@ class OperacaoListCreateView(ListAPIView):
 
 class PosicaoListView(APIView):
     def get(self, request):
-        posicoes = deps.consolidar_posicoes().executar()
+        posicoes = deps.consolidar_posicoes(request.user).executar()
         total = sum((p.valor_mercado for p in posicoes if p.valor_mercado), Decimal("0"))
         itens = [
             {
@@ -98,7 +125,7 @@ class PosicaoListView(APIView):
 class CarteiraResumoView(APIView):
     def get(self, request):
         try:
-            resumo = deps.resumo_carteira().executar()
+            resumo = deps.resumo_carteira(request.user).executar()
         except FonteExternaError:
             return Response(
                 RESPOSTA_FONTE_INDISPONIVEL, status=status.HTTP_503_SERVICE_UNAVAILABLE
@@ -132,7 +159,7 @@ class CarteiraRentabilidadeView(APIView):
             )
 
         try:
-            serie = deps.calcular_rentabilidade().executar(meses=meses)
+            serie = deps.calcular_rentabilidade(request.user).executar(meses=meses)
         except FonteExternaError:
             return Response(
                 RESPOSTA_FONTE_INDISPONIVEL, status=status.HTTP_503_SERVICE_UNAVAILABLE
@@ -160,7 +187,7 @@ class CotacoesAtualizarView(APIView):
 
 class RelatorioExcelView(APIView):
     def get(self, request):
-        conteudo = deps.gerar_relatorio_excel().executar()
+        conteudo = deps.gerar_relatorio_excel(request.user).executar()
         return FileResponse(
             BytesIO(conteudo),
             as_attachment=True,

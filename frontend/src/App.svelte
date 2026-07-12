@@ -3,6 +3,7 @@
   import Carteira from './routes/Carteira.svelte'
   import Operacoes from './routes/Operacoes.svelte'
   import Login from './routes/Login.svelte'
+  import Registro from './routes/Registro.svelte'
   import Landing from './routes/Landing.svelte'
   import Toast from './lib/components/Toast.svelte'
   import { estaAutenticado, limparSessao } from './lib/api/auth'
@@ -16,11 +17,11 @@
     '/operacoes': { pagina: Operacoes, titulo: 'Operações', eyebrow: 'Lançamentos e histórico' },
   } as const
 
-  type Rota = keyof typeof rotas | '/login'
+  type Rota = keyof typeof rotas | '/login' | '/registro'
 
   function rotaAtual(): Rota {
     const alvo = location.hash.slice(1) || '/'
-    if (alvo === '/login') return '/login'
+    if (alvo === '/login' || alvo === '/registro') return alvo
     return (alvo in rotas ? alvo : '/') as Rota
   }
 
@@ -37,7 +38,7 @@
     if (autenticado) carteira.carregar()
   })
 
-  let rotaApp = $derived(rota === '/login' ? '/' : rota)
+  let rotaApp = $derived(rota === '/login' || rota === '/registro' ? '/' : rota)
   let meta = $derived(rotas[rotaApp])
   let Pagina = $derived(rotas[rotaApp].pagina)
 
@@ -75,6 +76,8 @@
 {#if !autenticado}
   {#if rota === '/login'}
     <Login aoEntrar={entrar} />
+  {:else if rota === '/registro'}
+    <Registro aoRegistrar={entrar} />
   {:else}
     <Landing />
   {/if}

@@ -1,6 +1,36 @@
+from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from portfolio.models import Ativo, Operacao
+
+
+class RegistroSerializer(serializers.Serializer):
+    """Entrada do POST /api/auth/registro/ — criação de conta."""
+
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField(required=False, allow_blank=True, default="")
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate_username(self, valor: str) -> str:
+        if User.objects.filter(username__iexact=valor).exists():
+            raise serializers.ValidationError("Este nome de usuário já está em uso.")
+        return valor
+
+    def validate_password(self, valor: str) -> str:
+        try:
+            validate_password(valor)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.messages)
+        return valor
+
+    def create(self, validated_data: dict) -> User:
+        return User.objects.create_user(
+            username=validated_data["username"],
+            email=validated_data.get("email", ""),
+            password=validated_data["password"],
+        )
 
 
 class AtivoSerializer(serializers.ModelSerializer):

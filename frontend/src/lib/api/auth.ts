@@ -29,6 +29,31 @@ export async function login(username: string, password: string): Promise<boolean
   return true
 }
 
+/** Erros de validação por campo devolvidos pelo DRF (ex.: {username: [...]}) */
+export type ErrosRegistro = Record<string, string[] | string>
+
+export type ResultadoRegistro = { ok: true } | { ok: false; erros: ErrosRegistro }
+
+export async function registrar(
+  username: string,
+  email: string,
+  password: string,
+): Promise<ResultadoRegistro> {
+  const resp = await fetch('/api/auth/registro/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, email, password }),
+  })
+  if (resp.status === 201) {
+    const { access, refresh } = await resp.json()
+    localStorage.setItem(ACCESS_KEY, access)
+    localStorage.setItem(REFRESH_KEY, refresh)
+    return { ok: true }
+  }
+  const erros = (await resp.json().catch(() => ({}))) as ErrosRegistro
+  return { ok: false, erros }
+}
+
 export async function renovarToken(): Promise<boolean> {
   const refresh = localStorage.getItem(REFRESH_KEY)
   if (!refresh) return false

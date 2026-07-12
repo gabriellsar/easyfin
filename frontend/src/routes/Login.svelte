@@ -43,11 +43,23 @@
     <button class="btn btn-primary" style="width:100%;justify-content:center" disabled={enviando}>
       {enviando ? 'Entrando…' : 'Entrar'}
     </button>
+    <p class="alternativa">Ainda não tem conta? <a href="#/registro">Criar conta</a></p>
     <a class="voltar" href="#/">← Voltar ao site</a>
   </form>
 </div>
 
 <style>
+  .alternativa {
+    text-align: center;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .alternativa a {
+    color: var(--ink-2);
+    font-weight: 600;
+    text-decoration: none;
+  }
   .voltar {
     display: block;
     text-align: center;

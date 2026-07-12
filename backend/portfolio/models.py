@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -24,6 +25,9 @@ class Operacao(models.Model):
         COMPRA = "compra", "Compra"
         VENDA = "venda", "Venda"
 
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="operacoes"
+    )
     ativo = models.ForeignKey(Ativo, on_delete=models.PROTECT, related_name="operacoes")
     tipo = models.CharField(max_length=6, choices=Tipo.choices)
     quantidade = models.DecimalField(max_digits=18, decimal_places=6)

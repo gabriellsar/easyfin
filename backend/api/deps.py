@@ -32,35 +32,38 @@ def provedor_cotacoes() -> ProvedorCotacoes:
     return ProvedorCotacoesB3Bcb()
 
 
-def registrar_operacao() -> RegistrarOperacao:
-    return RegistrarOperacao(RepositorioAtivosDjango(), RepositorioOperacoesDjango())
+def registrar_operacao(usuario) -> RegistrarOperacao:
+    return RegistrarOperacao(RepositorioAtivosDjango(), RepositorioOperacoesDjango(usuario))
 
 
-def consolidar_posicoes() -> ConsolidarPosicoes:
+def consolidar_posicoes(usuario) -> ConsolidarPosicoes:
     return ConsolidarPosicoes(
         RepositorioAtivosDjango(),
-        RepositorioOperacoesDjango(),
+        RepositorioOperacoesDjango(usuario),
         RepositorioCotacoesDjango(),
     )
 
 
-def calcular_rentabilidade() -> CalcularRentabilidade:
-    return CalcularRentabilidade(RepositorioOperacoesDjango(), provedor_cotacoes())
+def calcular_rentabilidade(usuario) -> CalcularRentabilidade:
+    return CalcularRentabilidade(RepositorioOperacoesDjango(usuario), provedor_cotacoes())
 
 
-def resumo_carteira() -> ResumoCarteira:
+def resumo_carteira(usuario) -> ResumoCarteira:
     return ResumoCarteira(
-        consolidar_posicoes(), RepositorioCotacoesDjango(), calcular_rentabilidade()
+        consolidar_posicoes(usuario),
+        RepositorioCotacoesDjango(),
+        calcular_rentabilidade(usuario),
     )
 
 
 def atualizar_cotacoes() -> AtualizarCotacoes:
+    # Cotações são dados de mercado, globais — não têm dono.
     return AtualizarCotacoes(
         RepositorioAtivosDjango(), provedor_cotacoes(), RepositorioCotacoesDjango()
     )
 
 
-def gerar_relatorio_excel() -> GerarRelatorioExcel:
+def gerar_relatorio_excel(usuario) -> GerarRelatorioExcel:
     return GerarRelatorioExcel(
-        consolidar_posicoes(), RepositorioOperacoesDjango(), OpenpyxlWriter()
+        consolidar_posicoes(usuario), RepositorioOperacoesDjango(usuario), OpenpyxlWriter()
     )

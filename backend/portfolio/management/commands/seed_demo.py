@@ -39,25 +39,45 @@ OPERACOES = [
 class Command(BaseCommand):
     help = "Cria ativos, operações e cotações de demonstração (idempotente)."
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--usuario",
+            help="Username dono das operações demo (padrão: primeiro superusuário).",
+        )
+
     def handle(self, *args, **options):
+        from django.contrib.auth.models import User
+
+        if options["usuario"]:
+            usuario = User.objects.filter(username=options["usuario"]).first()
+        else:
+            usuario = User.objects.filter(is_superuser=True).order_by("pk").first()
+        if usuario is None:
+            self.stderr.write(
+                "Nenhum usuário encontrado. Crie um (createsuperuser ou /api/auth/registro/) "
+                "ou informe --usuario <username>."
+            )
+            return
+
         ativos = {}
         for ticker, nome, classe in ATIVOS:
             ativos[ticker], _ = Ativo.objects.get_or_create(
                 ticker=ticker, defaults={"nome": nome, "classe": classe}
             )
 
-        if Operacao.objects.exists():
-            self.stdout.write("Operações já existem — seed de operações ignorado.")
+        if Operacao.objects.filter(usuario=usuario).exists():
+            self.stdout.write(f"{usuario.username} já tem operações — seed ignorado.")
         else:
             for data, tipo, ticker, qtd, preco in OPERACOES:
                 Operacao.objects.create(
+                    usuario=usuario,
                     ativo=ativos[ticker],
                     tipo=tipo,
                     quantidade=Decimal(qtd),
                     preco_unitario=Decimal(preco),
                     data=data,
                 )
-            self.stdout.write(f"{len(OPERACOES)} operações criadas.")
+            self.stdout.write(f"{len(OPERACOES)} operações criadas para {usuario.username}.")
 
         for ticker, ativo in ativos.items():
             Cotacao.objects.update_or_create(

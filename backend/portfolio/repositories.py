@@ -38,9 +38,16 @@ class RepositorioAtivosDjango:
 
 
 class RepositorioOperacoesDjango:
+    """Repositório de operações ESCOPADO por usuário: cada instância enxerga
+    apenas a carteira do dono. O domínio continua sem conhecer usuários."""
+
+    def __init__(self, usuario) -> None:
+        self._usuario = usuario
+
     def salvar(self, operacao: entities.Operacao) -> entities.Operacao:
         ativo = models.Ativo.objects.get(ticker=operacao.ticker)
         model = models.Operacao.objects.create(
+            usuario=self._usuario,
             ativo=ativo,
             tipo=operacao.tipo.value,
             quantidade=operacao.quantidade,
@@ -50,11 +57,13 @@ class RepositorioOperacoesDjango:
         return _operacao_para_entidade(model)
 
     def listar_por_ticker(self, ticker: str) -> list[entities.Operacao]:
-        qs = models.Operacao.objects.select_related("ativo").filter(ativo__ticker=ticker)
+        qs = models.Operacao.objects.select_related("ativo").filter(
+            usuario=self._usuario, ativo__ticker=ticker
+        )
         return [_operacao_para_entidade(m) for m in qs]
 
     def listar_todas(self) -> list[entities.Operacao]:
-        qs = models.Operacao.objects.select_related("ativo").all()
+        qs = models.Operacao.objects.select_related("ativo").filter(usuario=self._usuario)
         return [_operacao_para_entidade(m) for m in qs]
 
 

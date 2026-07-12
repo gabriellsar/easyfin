@@ -117,7 +117,7 @@
       </nav>
       <div class="lp-nav-acoes">
         <a class="btn" href="#/login">Entrar</a>
-        <a class="btn btn-primary" href="#/login">Começar grátis</a>
+        <a class="btn btn-primary" href="#/registro">Começar grátis</a>
       </div>
     </div>
   </header>
@@ -135,7 +135,7 @@
         com o CDI e o Ibovespa — com exportação em Excel a um clique.
       </p>
       <div class="hero-ctas">
-        <a class="btn btn-primary btn-lg" href="#/login">Começar grátis</a>
+        <a class="btn btn-primary btn-lg" href="#/registro">Começar grátis</a>
         <a class="btn btn-lg" href="#demonstracao">Ver demonstração</a>
       </div>
       <div class="hero-kpis">
@@ -212,7 +212,7 @@
                 </li>
               {/each}
             </ul>
-            <a class="btn btn-lg plano-cta" class:btn-primary={plano.destaque} href="#/login">
+            <a class="btn btn-lg plano-cta" class:btn-primary={plano.destaque} href="#/registro">
               {plano.cta}
             </a>
           </div>
