@@ -12,7 +12,10 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv(BASE_DIR / ".env")
+# override=True: o .env é a fonte de verdade a cada reload do runserver —
+# sem isso, valores antigos herdados do processo pai (ex.: BRAPI_TOKEN vazio)
+# nunca são atualizados ao editar o .env.
+load_dotenv(BASE_DIR / ".env", override=True)
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv(

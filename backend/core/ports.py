@@ -12,6 +12,8 @@ class RepositorioAtivos(Protocol):
 
     def listar(self) -> list[Ativo]: ...
 
+    def salvar(self, ativo: Ativo) -> Ativo: ...
+
 
 class RepositorioOperacoes(Protocol):
     def salvar(self, operacao: Operacao) -> Operacao: ...
@@ -34,7 +36,7 @@ class RepositorioCotacoes(Protocol):
 
 
 class ProvedorCotacoes(Protocol):
-    """Fonte externa de cotações (brapi para B3/IBOV, BCB para CDI/SELIC).
+    """Fonte externa de cotações (brapi para B3/IBOV, BCB para CDI).
 
     Selecionada em api/deps.py via MARKET_DATA_PROVIDER:
     ProvedorCotacoesB3Bcb (real) ou MockProvedorCotacoes.
@@ -46,9 +48,13 @@ class ProvedorCotacoes(Protocol):
 
     def fechamento_anterior(self, ticker: str) -> Decimal | None: ...
 
+    def buscar_ativo(self, ticker: str) -> Ativo | None:
+        """Metadados (nome/classe) de um ticker, ou None se não existe na fonte."""
+        ...
+
     def serie_indice(self, indice: str, inicio: date, fim: date) -> dict[date, Decimal]:
         """Série mensal acumulada em % (base 0 no primeiro mês) de um índice
-        ('cdi', 'selic', 'ibovespa', 'carteira'). Vazia se indisponível."""
+        ('cdi', 'ibovespa', 'carteira'). Vazia se indisponível."""
         ...
 
     def serie_precos(self, ticker: str, inicio: date, fim: date) -> dict[date, Decimal]:

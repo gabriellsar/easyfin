@@ -21,6 +21,7 @@ from api.serializers import (
     PosicaoSerializer,
     RegistroSerializer,
 )
+from core.use_cases.calcular_rentabilidade import INDICES_SUPORTADOS
 from core.entities import (
     AtivoInexistenteError,
     FonteExternaError,
@@ -83,6 +84,10 @@ class OperacaoListCreateView(ListAPIView):
             criada = deps.registrar_operacao(request.user).executar(entidade)
         except (AtivoInexistenteError, SaldoInsuficienteError, ValueError) as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except FonteExternaError:
+            return Response(
+                RESPOSTA_FONTE_INDISPONIVEL, status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
 
         return Response(
             {
@@ -158,8 +163,24 @@ class CarteiraRentabilidadeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        brutos = request.query_params.get("indices", "cdi,ibovespa")
+        indices = [i.strip().lower() for i in brutos.split(",") if i.strip()]
+        invalidos = sorted(set(indices) - set(INDICES_SUPORTADOS))
+        if invalidos:
+            return Response(
+                {
+                    "detail": (
+                        f"Índices inválidos: {', '.join(invalidos)}. "
+                        f"Disponíveis: {', '.join(INDICES_SUPORTADOS)}."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
-            serie = deps.calcular_rentabilidade(request.user).executar(meses=meses)
+            serie = deps.calcular_rentabilidade(request.user).executar(
+                meses=meses, indices=indices
+            )
         except FonteExternaError:
             return Response(
                 RESPOSTA_FONTE_INDISPONIVEL, status=status.HTTP_503_SERVICE_UNAVAILABLE
@@ -168,8 +189,7 @@ class CarteiraRentabilidadeView(APIView):
             {
                 "datas": [d.isoformat() for d in serie["datas"]],
                 "carteira": serie["carteira"],
-                "cdi": serie["cdi"],
-                "ibovespa": serie["ibovespa"],
+                "indices": serie["indices"],
             }
         )
 

@@ -1,7 +1,7 @@
-"""Cliente da API SGS do Banco Central — séries de CDI e SELIC.
+"""Cliente da API SGS do Banco Central — série do CDI.
 
 Implementa a parte de índices de renda fixa do port ProvedorCotacoes.
-Séries SGS mensais (% a.m.): CDI = 4391, SELIC = 4390.
+Série SGS mensal (% a.m.): CDI = 4391.
 Docs: https://dadosabertos.bcb.gov.br — API aberta, sem autenticação.
 Respostas são cacheadas em memória por 10 minutos.
 """
@@ -18,7 +18,6 @@ SGS_BASE_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados"
 
 SERIES = {
     "cdi": 4391,
-    "selic": 4390,
 }
 
 _CACHE_TTL_SEGUNDOS = 600

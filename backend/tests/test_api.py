@@ -96,7 +96,40 @@ def test_rentabilidade_series_alinhadas(client_autenticado, db):
     resp = client_autenticado.get("/api/carteira/rentabilidade/?meses=12")
     assert resp.status_code == 200
     assert len(resp.data["datas"]) == len(resp.data["carteira"])
-    assert len(resp.data["carteira"]) == len(resp.data["cdi"]) == len(resp.data["ibovespa"])
+    assert set(resp.data["indices"]) == {"cdi", "ibovespa"}  # padrão
+    for serie in resp.data["indices"].values():
+        assert len(serie) == len(resp.data["datas"])
+
+
+def test_rentabilidade_indices_selecionaveis(client_autenticado, db):
+    resp = client_autenticado.get("/api/carteira/rentabilidade/?indices=ibovespa")
+    assert resp.status_code == 200
+    assert set(resp.data["indices"]) == {"ibovespa"}
+
+    resp = client_autenticado.get("/api/carteira/rentabilidade/?indices=cdi,ibovespa")
+    assert set(resp.data["indices"]) == {"cdi", "ibovespa"}
+
+
+def test_rentabilidade_indice_invalido_retorna_400(client_autenticado, db):
+    resp = client_autenticado.get("/api/carteira/rentabilidade/?indices=bitcoin")
+    assert resp.status_code == 400
+    assert "bitcoin" in resp.data["detail"]
+
+
+def test_operacoes_isoladas_por_usuario(client_autenticado, petr4):
+    client_autenticado.post("/api/operacoes/", _compra(), format="json")
+
+    outro = User.objects.create_user(username="outro", password="SenhaForte#2026")
+    client_outro = APIClient()
+    client_outro.force_authenticate(user=outro)
+
+    assert client_outro.get("/api/operacoes/").data["count"] == 0
+    assert client_outro.get("/api/posicoes/").data == []
+    resumo = client_outro.get("/api/carteira/resumo/").data
+    assert resumo["quantidade_posicoes"] == 0
+
+    # e o dono continua vendo a própria carteira
+    assert client_autenticado.get("/api/operacoes/").data["count"] == 1
 
 
 def test_rentabilidade_meses_invalido(client_autenticado, db):
@@ -152,3 +185,21 @@ def test_registro_email_opcional(db):
     dados = {"username": "sem_email", "password": "SenhaForte#2026"}
     resp = APIClient().post("/api/auth/registro/", dados, format="json")
     assert resp.status_code == 201
+
+
+def test_compra_de_ticker_novo_cadastra_ativo_automaticamente(client_autenticado, db):
+    # VALE3 não está no banco, mas o provedor (mock) a conhece
+    resp = client_autenticado.post(
+        "/api/operacoes/", _compra(ticker="VALE3", preco="63.40"), format="json"
+    )
+    assert resp.status_code == 201
+    from portfolio.models import Ativo as AtivoModel
+
+    ativo = AtivoModel.objects.get(ticker="VALE3")
+    assert ativo.cotacao.preco is not None  # já marcado a mercado
+
+
+def test_compra_de_ticker_inexistente_na_b3_retorna_400(client_autenticado, db):
+    resp = client_autenticado.post("/api/operacoes/", _compra(ticker="ZZZZ99"), format="json")
+    assert resp.status_code == 400
+    assert "não encontrado" in resp.data["detail"]

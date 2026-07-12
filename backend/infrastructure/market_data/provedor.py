@@ -1,5 +1,5 @@
 """ProvedorCotacoesB3Bcb — implementação REAL do port ProvedorCotacoes,
-compondo brapi (ações/FIIs/Ibovespa) e Banco Central (CDI/SELIC).
+compondo brapi (ações/FIIs/Ibovespa) e Banco Central (CDI).
 
 A série 'carteira' não é fornecida aqui de propósito: com dados reais ela é
 calculada pelo caso de uso CalcularRentabilidade a partir das operações e de
@@ -9,6 +9,7 @@ serie_precos (retornar vazio sinaliza isso ao domínio).
 from datetime import date
 from decimal import Decimal
 
+from core.entities import Ativo
 from infrastructure.market_data.bcb_client import BcbClient
 from infrastructure.market_data.brapi_client import BrapiClient
 
@@ -28,11 +29,14 @@ class ProvedorCotacoesB3Bcb:
     def fechamento_anterior(self, ticker: str) -> Decimal | None:
         return self._brapi.fechamento_anterior(ticker)
 
+    def buscar_ativo(self, ticker: str) -> Ativo | None:
+        return self._brapi.buscar_ativo(ticker)
+
     def serie_precos(self, ticker: str, inicio: date, fim: date) -> dict[date, Decimal]:
         return self._brapi.serie_precos(ticker, inicio, fim)
 
     def serie_indice(self, indice: str, inicio: date, fim: date) -> dict[date, Decimal]:
-        if indice in ("cdi", "selic"):
+        if indice == "cdi":
             return self._bcb.serie_indice(indice, inicio, fim)
         if indice == "ibovespa":
             precos = self._brapi.serie_precos(TICKER_IBOVESPA, inicio, fim)

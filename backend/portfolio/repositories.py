@@ -36,6 +36,13 @@ class RepositorioAtivosDjango:
     def listar(self) -> list[entities.Ativo]:
         return [_ativo_para_entidade(m) for m in models.Ativo.objects.all()]
 
+    def salvar(self, ativo: entities.Ativo) -> entities.Ativo:
+        model, _ = models.Ativo.objects.get_or_create(
+            ticker=ativo.ticker,
+            defaults={"nome": ativo.nome, "classe": ativo.classe.value},
+        )
+        return _ativo_para_entidade(model)
+
 
 class RepositorioOperacoesDjango:
     """Repositório de operações ESCOPADO por usuário: cada instância enxerga

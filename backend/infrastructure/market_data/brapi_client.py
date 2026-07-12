@@ -16,10 +16,20 @@ from decimal import Decimal
 
 import requests
 
-from core.entities import FonteExternaError
+from core.entities import Ativo, ClasseAtivo, FonteExternaError
 
 BRAPI_BASE_URL = "https://brapi.dev/api"
 _CACHE_TTL_SEGUNDOS = 600
+
+
+def _inferir_classe(ticker: str, nome: str) -> ClasseAtivo:
+    """Heurística B3: final '11' pode ser FII, ETF ou unit — o nome desambigua."""
+    nome_maiusculo = nome.upper()
+    if "ETF" in nome_maiusculo or "ÍNDICE" in nome_maiusculo or "INDICE" in nome_maiusculo:
+        return ClasseAtivo.ETF
+    if ticker.upper().endswith("11"):
+        return ClasseAtivo.FII
+    return ClasseAtivo.ACAO
 
 
 class BrapiClient:
@@ -71,6 +81,15 @@ class BrapiClient:
         r = self._get_quote(ticker)
         preco = r.get("regularMarketPreviousClose") if r else None
         return Decimal(str(preco)) if preco is not None else None
+
+    def buscar_ativo(self, ticker: str) -> Ativo | None:
+        r = self._get_quote(ticker)
+        if r is None:
+            return None
+        nome = r.get("longName") or r.get("shortName") or ticker
+        return Ativo(
+            ticker=ticker.upper(), nome=nome[:120], classe=_inferir_classe(ticker, nome)
+        )
 
     def serie_precos(self, ticker: str, inicio: date, fim: date) -> dict[date, Decimal]:
         r = self._get_quote(ticker, {"range": "2y", "interval": "1mo"})

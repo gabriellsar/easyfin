@@ -11,6 +11,7 @@ pelo preço médio de compra (contribuição de retorno zero) — aproximação
 documentada até existir uma fonte de preços de renda fixa.
 """
 
+from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
 from typing import TypedDict
@@ -18,12 +19,13 @@ from typing import TypedDict
 from core.entities import Operacao, TipoOperacao
 from core.ports import ProvedorCotacoes, RepositorioOperacoes
 
+INDICES_SUPORTADOS = ("cdi", "ibovespa")
+
 
 class SerieRentabilidade(TypedDict):
     datas: list[date]
     carteira: list[float]
-    cdi: list[float]
-    ibovespa: list[float]
+    indices: dict[str, list[float]]
 
 
 def _primeiro_do_mes_ha(meses_atras: int, referencia: date) -> date:
@@ -44,7 +46,12 @@ class CalcularRentabilidade:
         self._repo_operacoes = repo_operacoes
         self._provedor = provedor
 
-    def executar(self, meses: int = 12, hoje: date | None = None) -> SerieRentabilidade:
+    def executar(
+        self,
+        meses: int = 12,
+        indices: Sequence[str] = ("cdi", "ibovespa"),
+        hoje: date | None = None,
+    ) -> SerieRentabilidade:
         hoje = hoje or date.today()
         fim = _primeiro_do_mes_ha(1, hoje)  # mês fechado mais recente
         inicio = _primeiro_do_mes_ha(meses, hoje)
@@ -58,14 +65,15 @@ class CalcularRentabilidade:
         carteira = self._provedor.serie_indice("carteira", inicio, fim)
         if not carteira:
             carteira = self._serie_carteira(datas)
-        cdi = self._provedor.serie_indice("cdi", inicio, fim)
-        ibovespa = self._provedor.serie_indice("ibovespa", inicio, fim)
+
+        series = {i: self._provedor.serie_indice(i, inicio, fim) for i in indices}
 
         return SerieRentabilidade(
             datas=datas,
             carteira=[float(carteira.get(d, 0)) for d in datas],
-            cdi=[float(cdi.get(d, 0)) for d in datas],
-            ibovespa=[float(ibovespa.get(d, 0)) for d in datas],
+            indices={
+                i: [float(s.get(d, 0)) for d in datas] for i, s in series.items()
+            },
         )
 
     # ---------- série da carteira (Dietz simples mensal) ----------
@@ -119,7 +127,7 @@ class CalcularRentabilidade:
 
 
 def _fluxo_do_mes(operacoes: list[Operacao], mes: date) -> Decimal:
-    """Aportes líquidos no mês: compras entram (+), vendas saem (−)."""
+    """Aportes líquidos no mês: compras entram (+), vendas saem (-)."""
     corte = _proximo_mes(mes)
     fluxo = Decimal("0")
     for op in operacoes:

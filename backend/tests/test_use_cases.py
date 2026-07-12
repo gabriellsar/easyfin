@@ -28,6 +28,10 @@ class RepositorioAtivosFake:
     def listar(self) -> list[Ativo]:
         return list(self._ativos.values())
 
+    def salvar(self, ativo: Ativo) -> Ativo:
+        self._ativos[ativo.ticker] = ativo
+        return ativo
+
 
 class RepositorioOperacoesFake:
     def __init__(self) -> None:
@@ -168,8 +172,13 @@ class TestConsolidarPosicoes:
 class ProvedorFake:
     """Provedor sem série 'carteira' pronta — força o cálculo no domínio."""
 
-    def __init__(self, precos: dict[str, dict[date, Decimal]] | None = None) -> None:
+    def __init__(
+        self,
+        precos: dict[str, dict[date, Decimal]] | None = None,
+        ativos_conhecidos: dict[str, Ativo] | None = None,
+    ) -> None:
         self._precos = precos or {}
+        self._ativos_conhecidos = ativos_conhecidos or {}
 
     def cotacao_atual(self, ticker: str) -> Decimal | None:
         return None
@@ -182,6 +191,9 @@ class ProvedorFake:
 
     def serie_precos(self, ticker: str, inicio: date, fim: date) -> dict[date, Decimal]:
         return self._precos.get(ticker, {})
+
+    def buscar_ativo(self, ticker: str) -> Ativo | None:
+        return self._ativos_conhecidos.get(ticker)
 
 
 class TestCalcularRentabilidade:
@@ -228,3 +240,39 @@ class TestCalcularRentabilidade:
     def test_sem_operacoes_serie_zerada(self):
         serie = self._executar([], precos={})
         assert serie["carteira"] == pytest.approx([0.0, 0.0, 0.0])
+
+
+class TestRegistrarOperacaoComAtivoNovo:
+    """Ticker fora do banco: busca na fonte externa e cadastra automaticamente."""
+
+    BBDC4 = Ativo(ticker="BBDC4", nome="Banco Bradesco PN", classe=ClasseAtivo.ACAO)
+
+    def _uc(self, provedor):
+        self.repo_ativos = RepositorioAtivosFake([PETR4])
+        self.repo_ops = RepositorioOperacoesFake()
+        return RegistrarOperacao(self.repo_ativos, self.repo_ops, provedor)
+
+    def _compra_bbdc4(self):
+        return Operacao(
+            ticker="BBDC4",
+            tipo=TipoOperacao.COMPRA,
+            quantidade=Decimal("10"),
+            preco_unitario=Decimal("15"),
+            data=date(2026, 1, 15),
+        )
+
+    def test_ativo_novo_e_cadastrado_e_operacao_registrada(self):
+        uc = self._uc(ProvedorFake(ativos_conhecidos={"BBDC4": self.BBDC4}))
+        uc.executar(self._compra_bbdc4())
+        assert self.repo_ativos.buscar_por_ticker("BBDC4") == self.BBDC4
+        assert len(self.repo_ops.listar_todas()) == 1
+
+    def test_ticker_desconhecido_da_fonte_levanta_erro(self):
+        uc = self._uc(ProvedorFake())
+        with pytest.raises(AtivoInexistenteError, match="não encontrado na B3"):
+            uc.executar(self._compra_bbdc4())
+
+    def test_sem_provedor_mantem_comportamento_antigo(self):
+        uc = RegistrarOperacao(RepositorioAtivosFake([PETR4]), RepositorioOperacoesFake())
+        with pytest.raises(AtivoInexistenteError):
+            uc.executar(self._compra_bbdc4())

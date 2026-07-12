@@ -47,9 +47,10 @@ class ResumoCarteira:
             resultado_dia / base_anterior * 100 if base_anterior > 0 else Decimal("0")
         )
 
-        serie = self._calcular_rentabilidade.executar(meses=12)
+        serie = self._calcular_rentabilidade.executar(meses=12, indices=("cdi",))
         rentabilidade_12m = serie["carteira"][-1] if serie["carteira"] else 0.0
-        cdi_12m = serie["cdi"][-1] if serie["cdi"] else 0.0
+        serie_cdi = serie["indices"].get("cdi", [])
+        cdi_12m = serie_cdi[-1] if serie_cdi else 0.0
         percentual_cdi = rentabilidade_12m / cdi_12m * 100 if cdi_12m else 0.0
 
         return Resumo(

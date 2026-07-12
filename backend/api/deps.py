@@ -33,7 +33,12 @@ def provedor_cotacoes() -> ProvedorCotacoes:
 
 
 def registrar_operacao(usuario) -> RegistrarOperacao:
-    return RegistrarOperacao(RepositorioAtivosDjango(), RepositorioOperacoesDjango(usuario))
+    return RegistrarOperacao(
+        RepositorioAtivosDjango(),
+        RepositorioOperacoesDjango(usuario),
+        provedor_cotacoes(),
+        RepositorioCotacoesDjango(),
+    )
 
 
 def consolidar_posicoes(usuario) -> ConsolidarPosicoes:

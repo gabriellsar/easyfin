@@ -10,6 +10,7 @@ import random
 from datetime import date
 from decimal import Decimal
 
+from core.entities import Ativo, ClasseAtivo
 from portfolio.models import Cotacao
 
 COTACOES_BASE: dict[str, Decimal] = {
@@ -70,6 +71,14 @@ class MockProvedorCotacoes:
     def serie_indice(self, indice: str, inicio: date, fim: date) -> dict[date, Decimal]:
         serie = SERIES.get(indice, {})
         return {d: v for d, v in serie.items() if inicio <= d <= fim}
+
+    def buscar_ativo(self, ticker: str) -> Ativo | None:
+        """No mock, qualquer ticker com cotação base é 'conhecido pela B3'."""
+        ticker = ticker.upper()
+        if ticker not in COTACOES_BASE:
+            return None
+        classe = ClasseAtivo.FII if ticker.endswith("11") else ClasseAtivo.ACAO
+        return Ativo(ticker=ticker, nome=ticker, classe=classe)
 
     def serie_precos(self, ticker: str, inicio: date, fim: date) -> dict[date, Decimal]:
         # O mock fornece a série 'carteira' pronta em serie_indice, então o
