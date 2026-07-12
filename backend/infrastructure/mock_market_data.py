@@ -35,16 +35,19 @@ FECHAMENTO_ANTERIOR: dict[str, Decimal] = {
     "TSELIC29": Decimal("15827.10"),
 }
 
+# 13 meses: ponto-base (0%) + 12 retornos mensais, como a janela padrão
+# de CalcularRentabilidade (meses=12).
 _MESES = [
-    date(2025, 7, 1), date(2025, 8, 1), date(2025, 9, 1), date(2025, 10, 1),
-    date(2025, 11, 1), date(2025, 12, 1), date(2026, 1, 1), date(2026, 2, 1),
-    date(2026, 3, 1), date(2026, 4, 1), date(2026, 5, 1), date(2026, 6, 1),
+    date(2025, 6, 1), date(2025, 7, 1), date(2025, 8, 1), date(2025, 9, 1),
+    date(2025, 10, 1), date(2025, 11, 1), date(2025, 12, 1), date(2026, 1, 1),
+    date(2026, 2, 1), date(2026, 3, 1), date(2026, 4, 1), date(2026, 5, 1),
+    date(2026, 6, 1),
 ]
 
 SERIES: dict[str, dict[date, Decimal]] = {
-    "carteira": dict(zip(_MESES, map(Decimal, "0 1.2 2.8 3.5 5.1 6.0 7.4 8.2 9.6 11.3 12.8 14.2".split()))),
-    "cdi": dict(zip(_MESES, map(Decimal, "0 0.9 1.8 2.8 3.7 4.7 5.6 6.5 7.4 8.4 9.3 10.3".split()))),
-    "ibovespa": dict(zip(_MESES, map(Decimal, "0 2.1 1.4 3.9 3.2 5.6 4.8 7.5 8.9 10.2 11.6 12.4".split()))),
+    "carteira": dict(zip(_MESES, map(Decimal, "0 1.2 2.8 3.5 5.1 6.0 7.4 8.2 9.6 11.3 12.8 14.2 15.4".split()))),
+    "cdi": dict(zip(_MESES, map(Decimal, "0 0.9 1.8 2.8 3.7 4.7 5.6 6.5 7.4 8.4 9.3 10.3 11.2".split()))),
+    "ibovespa": dict(zip(_MESES, map(Decimal, "0 2.1 1.4 3.9 3.2 5.6 4.8 7.5 8.9 10.2 11.6 12.4 13.5".split()))),
 }
 
 

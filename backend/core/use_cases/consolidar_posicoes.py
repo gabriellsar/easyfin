@@ -29,9 +29,13 @@ class ConsolidarPosicoes:
         for op in operacoes:
             p = acumulado.setdefault(op.ticker, {"qtd": Decimal("0"), "pm": Decimal("0")})
             if op.tipo == TipoOperacao.COMPRA:
-                nova_qtd = p["qtd"] + op.quantidade
-                p["pm"] = (p["pm"] * p["qtd"] + op.preco_unitario * op.quantidade) / nova_qtd
-                p["qtd"] = nova_qtd
+                # histórico inconsistente (saldo negativo) não pode corromper
+                # o PM nem zerar o divisor
+                base = max(p["qtd"], Decimal("0"))
+                p["pm"] = (p["pm"] * base + op.preco_unitario * op.quantidade) / (
+                    base + op.quantidade
+                )
+                p["qtd"] += op.quantidade
             else:
                 p["qtd"] -= op.quantidade  # venda mantém o preço médio
 

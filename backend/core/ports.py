@@ -36,7 +36,8 @@ class RepositorioCotacoes(Protocol):
 
 
 class ProvedorCotacoes(Protocol):
-    """Fonte externa de cotações (brapi para B3/IBOV, BCB para CDI).
+    """Fonte externa de cotações (brapi para cotação atual, Yahoo Finance
+    para histórico mensal, BCB para CDI).
 
     Selecionada em api/deps.py via MARKET_DATA_PROVIDER:
     ProvedorCotacoesB3Bcb (real) ou MockProvedorCotacoes.

@@ -5,7 +5,10 @@ Regras:
 - Ativo desconhecido: se houver provedor de cotações, o ativo é buscado na
   fonte externa e cadastrado automaticamente (com a cotação inicial);
   se a fonte também não o conhece, AtivoInexistenteError.
-- Venda: valida quantidade disponível em carteira (SaldoInsuficienteError).
+- Venda: o histórico é revalidado com a operação inserida na sua data —
+  o saldo do ticker não pode ficar negativo em nenhum ponto da linha do
+  tempo (SaldoInsuficienteError), o que cobre também vendas retroativas
+  que descobririam vendas já registradas.
 O preço médio não é armazenado: é derivado das operações na consolidação.
 """
 
@@ -48,12 +51,7 @@ class RegistrarOperacao:
             self._cadastrar_ativo_externo(operacao.ticker)
 
         if operacao.tipo == TipoOperacao.VENDA:
-            saldo = self._saldo_disponivel(operacao.ticker)
-            if operacao.quantidade > saldo:
-                raise SaldoInsuficienteError(
-                    f"Quantidade indisponível: você possui {saldo.normalize():f} un. "
-                    f"de {operacao.ticker}."
-                )
+            self._validar_saldo_na_linha_do_tempo(operacao)
 
         return self._repo_operacoes.salvar(operacao)
 
@@ -73,11 +71,27 @@ class RegistrarOperacao:
                     ticker, preco, self._provedor.fechamento_anterior(ticker)
                 )
 
-    def _saldo_disponivel(self, ticker: str) -> Decimal:
+    def _validar_saldo_na_linha_do_tempo(self, venda: Operacao) -> None:
+        # No mesmo dia, compras contam antes das vendas (permite comprar e
+        # vender na mesma data).
+        operacoes = [*self._repo_operacoes.listar_por_ticker(venda.ticker), venda]
+        operacoes.sort(key=lambda o: (o.data, o.tipo != TipoOperacao.COMPRA))
+
         saldo = Decimal("0")
-        for op in self._repo_operacoes.listar_por_ticker(ticker):
+        for op in operacoes:
             if op.tipo == TipoOperacao.COMPRA:
                 saldo += op.quantidade
-            else:
-                saldo -= op.quantidade
-        return saldo
+                continue
+            saldo -= op.quantidade
+            if saldo >= 0:
+                continue
+            if op is venda:
+                disponivel = saldo + venda.quantidade
+                raise SaldoInsuficienteError(
+                    f"Quantidade indisponível: você possui {disponivel.normalize():f} un. "
+                    f"de {venda.ticker} em {venda.data:%d/%m/%Y}."
+                )
+            raise SaldoInsuficienteError(
+                f"Esta venda deixaria o saldo de {venda.ticker} negativo em "
+                f"{op.data:%d/%m/%Y}, data de uma venda já registrada."
+            )

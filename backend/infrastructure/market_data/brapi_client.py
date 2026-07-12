@@ -4,8 +4,12 @@ Implementa a parte de ações/FIIs do port ProvedorCotacoes (core/ports.py).
 Docs: https://brapi.dev/docs
 
 Notas do plano gratuito:
-- /quote/{ticker} e o histórico mensal funcionam sem token;
-- ^BVSP (Ibovespa) EXIGE token (BRAPI_TOKEN no .env).
+- /quote/{ticker} funciona sem token;
+- ^BVSP (Ibovespa) EXIGE token (BRAPI_TOKEN no .env);
+- histórico limitado a range=3mo com interval=1d — os fechamentos mensais
+  são agregados aqui a partir das barras diárias; meses anteriores à
+  cobertura ficam sem preço e o domínio recorre ao fallback de custo médio
+  (rentabilidade zero neles).
 Respostas são cacheadas em memória por 10 minutos.
 """
 
@@ -92,8 +96,11 @@ class BrapiClient:
         )
 
     def serie_precos(self, ticker: str, inicio: date, fim: date) -> dict[date, Decimal]:
-        r = self._get_quote(ticker, {"range": "2y", "interval": "1mo"})
+        # O plano gratuito só aceita interval=1d e range até 3mo: busca as
+        # barras diárias e agrega no fechamento do último pregão de cada mês.
+        r = self._get_quote(ticker, {"range": "3mo", "interval": "1d"})
         barras = (r or {}).get("historicalDataPrice") or []
+        ultimo_dia: dict[date, date] = {}
         serie: dict[date, Decimal] = {}
         for barra in barras:
             fechamento = barra.get("adjustedClose") or barra.get("close")
@@ -101,6 +108,9 @@ class BrapiClient:
                 continue
             dia = datetime.fromtimestamp(barra["date"], tz=timezone.utc).date()
             mes = dia.replace(day=1)
-            if inicio <= mes <= fim:
+            if not (inicio <= mes <= fim):
+                continue
+            if mes not in ultimo_dia or dia > ultimo_dia[mes]:
+                ultimo_dia[mes] = dia
                 serie[mes] = Decimal(str(fechamento))
         return serie

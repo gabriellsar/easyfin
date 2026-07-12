@@ -3,12 +3,18 @@
 CDI e Ibovespa vêm do ProvedorCotacoes. A série da carteira:
 - se o provedor a fornece pronta (MockProvedorCotacoes), é usada direto;
 - caso contrário (provedor real), é CALCULADA aqui a partir das operações e
-  dos fechamentos mensais (serie_precos), com retorno de Dietz simples por
-  mês composto ao longo do período.
+  dos fechamentos mensais (serie_precos).
 
-Tickers sem histórico de preços na fonte (ex.: títulos do Tesouro) entram
-pelo preço médio de compra (contribuição de retorno zero) — aproximação
-documentada até existir uma fonte de preços de renda fixa.
+Regras do cálculo mensal:
+- `meses` é o número de retornos mensais compostos: a série tem meses + 1
+  pontos, com base 0% no primeiro (fim do mês anterior à janela).
+- Retorno do mês por Dietz modificado com aportes (compras) ponderados no
+  início do mês e resgates (vendas) no fim:
+  (V_fim + vendas - V_ini - compras) / (V_ini + compras).
+- Tickers sem histórico de preços na fonte (ex.: títulos do Tesouro) são
+  avaliados pelo custo médio das compras feitas até o mês — contribuição de
+  retorno zero enquanto mantidos; vendas realizam o resultado no mês em que
+  ocorrem. Aproximação documentada até existir fonte de preços de renda fixa.
 """
 
 from collections.abc import Sequence
@@ -54,7 +60,7 @@ class CalcularRentabilidade:
     ) -> SerieRentabilidade:
         hoje = hoje or date.today()
         fim = _primeiro_do_mes_ha(1, hoje)  # mês fechado mais recente
-        inicio = _primeiro_do_mes_ha(meses, hoje)
+        inicio = _primeiro_do_mes_ha(meses + 1, hoje)  # ponto-base (0%) da janela
 
         datas: list[date] = []
         mes = inicio
@@ -76,7 +82,7 @@ class CalcularRentabilidade:
             },
         )
 
-    # ---------- série da carteira (Dietz simples mensal) ----------
+    # ---------- série da carteira (Dietz modificado mensal) ----------
 
     def _serie_carteira(self, datas: list[date]) -> dict[date, Decimal]:
         operacoes = sorted(self._repo_operacoes.listar_todas(), key=lambda o: o.data)
@@ -86,17 +92,20 @@ class CalcularRentabilidade:
         inicio, fim = datas[0], datas[-1]
         tickers = {op.ticker for op in operacoes}
         precos = {t: self._provedor.serie_precos(t, inicio, fim) for t in tickers}
-        preco_fallback = {t: _preco_medio_compras(operacoes, t) for t in tickers}
 
         serie: dict[date, Decimal] = {inicio: Decimal("0")}
         acumulado = Decimal("0")
-        valor_anterior = self._valor_no_mes(operacoes, precos, preco_fallback, inicio)
+        valor_anterior = self._valor_no_mes(operacoes, precos, inicio)
 
         for mes in datas[1:]:
-            valor = self._valor_no_mes(operacoes, precos, preco_fallback, mes)
-            fluxo = _fluxo_do_mes(operacoes, mes)
-            base = valor_anterior + fluxo
-            retorno = (valor - valor_anterior - fluxo) / base if base > 0 else Decimal("0")
+            valor = self._valor_no_mes(operacoes, precos, mes)
+            compras, vendas = _fluxos_do_mes(operacoes, mes)
+            base = valor_anterior + compras
+            retorno = (
+                (valor + vendas - valor_anterior - compras) / base
+                if base > 0
+                else Decimal("0")
+            )
             acumulado = ((1 + acumulado / 100) * (1 + retorno) - 1) * 100
             serie[mes] = acumulado
             valor_anterior = valor
@@ -106,7 +115,6 @@ class CalcularRentabilidade:
         self,
         operacoes: list[Operacao],
         precos: dict[str, dict[date, Decimal]],
-        preco_fallback: dict[str, Decimal],
         mes: date,
     ) -> Decimal:
         corte = _proximo_mes(mes)
@@ -121,20 +129,25 @@ class CalcularRentabilidade:
         for ticker, qtd in quantidades.items():
             if qtd <= 0:
                 continue
-            preco = _preco_ate_o_mes(precos.get(ticker, {}), mes) or preco_fallback[ticker]
+            preco = _preco_ate_o_mes(precos.get(ticker, {}), mes)
+            if preco is None:
+                preco = _preco_medio_compras(operacoes, ticker, corte)
             total += qtd * preco
         return total
 
 
-def _fluxo_do_mes(operacoes: list[Operacao], mes: date) -> Decimal:
-    """Aportes líquidos no mês: compras entram (+), vendas saem (-)."""
+def _fluxos_do_mes(operacoes: list[Operacao], mes: date) -> tuple[Decimal, Decimal]:
+    """Total financeiro de compras e de vendas do mês (ambos positivos)."""
     corte = _proximo_mes(mes)
-    fluxo = Decimal("0")
+    compras = Decimal("0")
+    vendas = Decimal("0")
     for op in operacoes:
         if mes <= op.data < corte:
-            sinal = 1 if op.tipo == TipoOperacao.COMPRA else -1
-            fluxo += sinal * op.valor_total
-    return fluxo
+            if op.tipo == TipoOperacao.COMPRA:
+                compras += op.valor_total
+            else:
+                vendas += op.valor_total
+    return compras, vendas
 
 
 def _preco_ate_o_mes(precos: dict[date, Decimal], mes: date) -> Decimal | None:
@@ -143,8 +156,13 @@ def _preco_ate_o_mes(precos: dict[date, Decimal], mes: date) -> Decimal | None:
     return precos[max(candidatos)] if candidatos else None
 
 
-def _preco_medio_compras(operacoes: list[Operacao], ticker: str) -> Decimal:
-    compras = [o for o in operacoes if o.ticker == ticker and o.tipo == TipoOperacao.COMPRA]
+def _preco_medio_compras(operacoes: list[Operacao], ticker: str, ate: date) -> Decimal:
+    """Custo médio das compras anteriores a `ate` — sem olhar preços futuros."""
+    compras = [
+        o
+        for o in operacoes
+        if o.ticker == ticker and o.tipo == TipoOperacao.COMPRA and o.data < ate
+    ]
     quantidade = sum((o.quantidade for o in compras), Decimal("0"))
     if quantidade == 0:
         return Decimal("0")

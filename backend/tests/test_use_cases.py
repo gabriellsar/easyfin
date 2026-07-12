@@ -105,6 +105,22 @@ class TestRegistrarOperacao:
         with pytest.raises(SaldoInsuficienteError, match="100"):
             self.uc.executar(_venda("150", "42.30"))
 
+    def test_venda_retroativa_sem_saldo_na_data_levanta_erro(self):
+        self.uc.executar(_compra("100", "36.10", dia=10))
+        with pytest.raises(SaldoInsuficienteError, match="possui 0"):
+            self.uc.executar(_venda("50", "42.30", dia=5))
+
+    def test_venda_retroativa_que_descobre_venda_futura_levanta_erro(self):
+        self.uc.executar(_compra("100", "36.10", dia=1))
+        self.uc.executar(_venda("100", "42.30", dia=20))
+        with pytest.raises(SaldoInsuficienteError, match="já registrada"):
+            self.uc.executar(_venda("50", "40.00", dia=10))
+
+    def test_venda_no_mesmo_dia_da_compra_e_aceita(self):
+        self.uc.executar(_compra("100", "36.10", dia=5))
+        self.uc.executar(_venda("100", "42.30", dia=5))
+        assert len(self.repo_ops.listar_todas()) == 2
+
     def test_ticker_inexistente_levanta_erro(self):
         op = Operacao(
             ticker="XXXX4",
@@ -168,6 +184,17 @@ class TestConsolidarPosicoes:
         assert posicoes[0].valor_mercado is None
         assert posicoes[0].resultado_pct is None
 
+    def test_historico_inconsistente_nao_corrompe_pm_nem_quebra(self):
+        # venda antes de qualquer compra (dado legado inválido): a compra
+        # seguinte não pode herdar quantidade negativa no cálculo do PM
+        posicoes = self._consolidar([_venda("10", "40.00", 1), _compra("20", "36.10", 5)])
+        assert posicoes[0].quantidade == Decimal("10")
+        assert posicoes[0].preco_medio == Decimal("36.10")
+
+    def test_historico_inconsistente_que_zera_posicao_nao_quebra(self):
+        posicoes = self._consolidar([_venda("10", "40.00", 1), _compra("10", "36.10", 5)])
+        assert posicoes == []
+
 
 class ProvedorFake:
     """Provedor sem série 'carteira' pronta — força o cálculo no domínio."""
@@ -197,7 +224,8 @@ class ProvedorFake:
 
 
 class TestCalcularRentabilidade:
-    HOJE = date(2026, 7, 15)  # janela de 3 meses: abr, mai, jun/2026
+    # meses=3 → 4 pontos: base 0% em mar + retornos de abr, mai, jun/2026
+    HOJE = date(2026, 7, 15)
 
     def _executar(self, operacoes, precos):
         repo = RepositorioOperacoesFake()
@@ -206,15 +234,27 @@ class TestCalcularRentabilidade:
         uc = CalcularRentabilidade(repo, ProvedorFake(precos))
         return uc.executar(meses=3, hoje=self.HOJE)
 
+    def _op(self, tipo, qtd, preco, data):
+        return Operacao(
+            ticker="PETR4",
+            tipo=tipo,
+            quantidade=Decimal(qtd),
+            preco_unitario=Decimal(preco),
+            data=data,
+        )
+
+    def test_janela_tem_meses_de_retorno_mais_ponto_base(self):
+        serie = self._executar([], precos={})
+        assert serie["datas"] == [
+            date(2026, 3, 1),
+            date(2026, 4, 1),
+            date(2026, 5, 1),
+            date(2026, 6, 1),
+        ]
+
     def test_carteira_calculada_por_dietz_mensal(self):
         # compra em abril; preço sobe 10% em maio e fica estável em junho
-        op = Operacao(
-            ticker="PETR4",
-            tipo=TipoOperacao.COMPRA,
-            quantidade=Decimal("100"),
-            preco_unitario=Decimal("10"),
-            data=date(2026, 4, 10),
-        )
+        op = self._op(TipoOperacao.COMPRA, "100", "10", date(2026, 4, 10))
         precos = {
             "PETR4": {
                 date(2026, 4, 1): Decimal("10"),
@@ -223,23 +263,35 @@ class TestCalcularRentabilidade:
             }
         }
         serie = self._executar([op], precos)
-        assert serie["datas"] == [date(2026, 4, 1), date(2026, 5, 1), date(2026, 6, 1)]
-        assert serie["carteira"] == pytest.approx([0.0, 10.0, 10.0])
+        assert serie["carteira"] == pytest.approx([0.0, 0.0, 10.0, 10.0])
+
+    def test_liquidacao_total_registra_o_resultado_do_mes(self):
+        # compra em abril a 10; vende tudo em maio a 12 → +20% no mês da venda
+        operacoes = [
+            self._op(TipoOperacao.COMPRA, "100", "10", date(2026, 4, 10)),
+            self._op(TipoOperacao.VENDA, "100", "12", date(2026, 5, 15)),
+        ]
+        precos = {"PETR4": {date(2026, 4, 1): Decimal("10")}}
+        serie = self._executar(operacoes, precos)
+        assert serie["carteira"] == pytest.approx([0.0, 0.0, 20.0, 20.0])
 
     def test_ticker_sem_historico_usa_preco_medio_e_nao_rende(self):
-        op = Operacao(
-            ticker="PETR4",
-            tipo=TipoOperacao.COMPRA,
-            quantidade=Decimal("10"),
-            preco_unitario=Decimal("100"),
-            data=date(2026, 4, 10),
-        )
+        op = self._op(TipoOperacao.COMPRA, "10", "100", date(2026, 4, 10))
         serie = self._executar([op], precos={})
-        assert serie["carteira"] == pytest.approx([0.0, 0.0, 0.0])
+        assert serie["carteira"] == pytest.approx([0.0, 0.0, 0.0, 0.0])
+
+    def test_compras_a_precos_diferentes_sem_historico_nao_geram_retorno_espurio(self):
+        # sem cotação de mercado, aportar mais caro não pode virar "rentabilidade"
+        operacoes = [
+            self._op(TipoOperacao.COMPRA, "100", "10", date(2026, 4, 10)),
+            self._op(TipoOperacao.COMPRA, "100", "20", date(2026, 5, 10)),
+        ]
+        serie = self._executar(operacoes, precos={})
+        assert serie["carteira"] == pytest.approx([0.0, 0.0, 0.0, 0.0])
 
     def test_sem_operacoes_serie_zerada(self):
         serie = self._executar([], precos={})
-        assert serie["carteira"] == pytest.approx([0.0, 0.0, 0.0])
+        assert serie["carteira"] == pytest.approx([0.0, 0.0, 0.0, 0.0])
 
 
 class TestRegistrarOperacaoComAtivoNovo:
