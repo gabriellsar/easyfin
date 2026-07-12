@@ -6,7 +6,7 @@
   import type { ResumoCarteira, SerieRentabilidade } from '../lib/api/carteira'
   import type { Posicao } from '../lib/api/posicoes'
 
-  // Dados estáticos de demonstração — a landing é pública e não consome a API.
+  // Dados estáticos de demonstração
   const demoResumo: ResumoCarteira = {
     patrimonio: '64552.72',
     resultado_dia: '220.12',
@@ -105,6 +105,10 @@
   ]
 
   const anoAtual = new Date().getFullYear()
+  $effect(() => {
+    const apiUrl = import.meta.env.VITE_API_URL ?? ''
+    fetch(`${apiUrl}/api/health/`).catch(() => {})
+  })
 </script>
 
 <div class="landing">

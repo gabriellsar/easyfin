@@ -32,6 +32,14 @@ RESPOSTA_FONTE_INDISPONIVEL = {
     "detail": "Fonte externa de cotações indisponível no momento. Tente novamente."
 }
 
+class HealthCheckView(APIView):
+    """Verifica se a API está funcionando."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
 class RegistroView(APIView):
     """Criação de conta — público. Devolve o par JWT para login imediato."""
