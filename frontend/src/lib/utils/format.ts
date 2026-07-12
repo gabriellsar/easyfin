@@ -46,3 +46,13 @@ export const CLASSE_LABEL: Record<string, string> = {
 }
 
 export const classeLabel = (slug: string) => CLASSE_LABEL[slug] ?? slug
+
+/** Benchmarks disponíveis para comparação (a API valida a mesma lista). */
+export const INDICES_DISPONIVEIS = ['cdi', 'ibovespa'] as const
+
+export const INDICE_LABEL: Record<string, string> = {
+  cdi: 'CDI',
+  ibovespa: 'Ibovespa',
+}
+
+export const indiceLabel = (chave: string) => INDICE_LABEL[chave] ?? chave.toUpperCase()

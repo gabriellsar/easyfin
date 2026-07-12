@@ -4,7 +4,15 @@
   import PerformanceChart from '../lib/components/charts/PerformanceChart.svelte'
   import AllocationDonut from '../lib/components/charts/AllocationDonut.svelte'
   import { carteira } from '../lib/state/carteira.svelte'
-  import { fmtBRL, fmtPct, fmtQty, fmtMesAno, fmtMesAnoLongo } from '../lib/utils/format'
+  import {
+    fmtBRL,
+    fmtPct,
+    fmtQty,
+    fmtMesAno,
+    fmtMesAnoLongo,
+    INDICES_DISPONIVEIS,
+    indiceLabel,
+  } from '../lib/utils/format'
 
   let top5 = $derived(
     [...carteira.posicoes]
@@ -15,27 +23,44 @@
   let periodo = $derived(
     datas.length ? `${fmtMesAnoLongo(datas[0])} — ${fmtMesAnoLongo(datas.at(-1)!)}` : null,
   )
+  let indicesRuler = $derived(
+    Object.entries(carteira.serie?.indices ?? {}).map(([chave, valores]) => ({
+      chave,
+      valor: valores.at(-1) ?? 0,
+    })),
+  )
 </script>
 
 <KpiCards resumo={carteira.resumo} {periodo} />
 
 <div class="grid-2">
   <div class="card">
-    <h3>Evolução acumulada — 12 meses</h3>
-    <div class="sub">
-      Carteira comparada aos benchmarks
-      {datas.length ? `(base 0% em ${fmtMesAno(datas[0])})` : ''}
+    <div class="chart-topo">
+      <div>
+        <h3>Evolução acumulada — 12 meses</h3>
+        <div class="sub">
+          Carteira comparada aos benchmarks
+          {datas.length ? `(base 0% em ${fmtMesAno(datas[0])})` : ''}
+        </div>
+      </div>
+      <div class="filters indices" role="group" aria-label="Benchmarks exibidos">
+        {#each INDICES_DISPONIVEIS as chave (chave)}
+          <button
+            class="filter-chip"
+            class:active={carteira.indicesSelecionados.includes(chave)}
+            onclick={() => carteira.alternarIndice(chave)}
+          >
+            {indiceLabel(chave)}
+          </button>
+        {/each}
+      </div>
     </div>
     <PerformanceChart serie={carteira.serie} />
   </div>
   <div class="card">
     <h3>Carteira vs benchmarks</h3>
     <div class="sub">Rentabilidade acumulada no período</div>
-    <BenchmarkRuler
-      carteira={carteira.serie?.carteira.at(-1) ?? 0}
-      cdi={carteira.serie?.cdi.at(-1) ?? 0}
-      ibovespa={carteira.serie?.ibovespa.at(-1) ?? 0}
-    />
+    <BenchmarkRuler carteira={carteira.serie?.carteira.at(-1) ?? 0} indices={indicesRuler} />
   </div>
 </div>
 
@@ -81,3 +106,16 @@
     <AllocationDonut posicoes={carteira.posicoes} />
   </div>
 </div>
+
+<style>
+  .chart-topo {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .indices {
+    margin-bottom: 0;
+  }
+</style>

@@ -1,13 +1,16 @@
 <script lang="ts">
   import { Chart } from 'chart.js/auto'
   import type { SerieRentabilidade } from '../../api/carteira'
-  import { fmtPct, fmtMesAno } from '../../utils/format'
+  import { fmtPct, fmtMesAno, indiceLabel } from '../../utils/format'
 
   let { serie }: { serie: SerieRentabilidade | null } = $props()
 
+  const ESTILO_INDICE: Record<string, { cor: string; tracejado?: number[] }> = {
+    cdi: { cor: '#8FA3BC', tracejado: [5, 4] },
+    ibovespa: { cor: '#B98A2F' },
+  }
+
   let canvas: HTMLCanvasElement
-  // $state.raw: o efeito de atualização precisa re-executar quando o chart
-  // for criado, senão o curto-circuito em !chart impede o rastreamento de serie
   let chart = $state.raw<Chart | undefined>(undefined)
 
   $effect(() => {
@@ -45,7 +48,6 @@
 
   $effect(() => {
     if (!chart || !serie) return
-    // snapshot: Chart.js usa defineProperty nos arrays, o que o proxy do $state proíbe
     const s = $state.snapshot(serie)
     chart.data.labels = s.datas.map(fmtMesAno)
     chart.data.datasets = [
@@ -60,23 +62,18 @@
         pointHoverRadius: 4,
         tension: 0.3,
       },
-      {
-        label: 'CDI',
-        data: s.cdi,
-        borderColor: '#8FA3BC',
-        borderDash: [5, 4],
-        borderWidth: 1.8,
-        pointRadius: 0,
-        tension: 0.3,
-      },
-      {
-        label: 'Ibovespa',
-        data: s.ibovespa,
-        borderColor: '#B98A2F',
-        borderWidth: 1.8,
-        pointRadius: 0,
-        tension: 0.3,
-      },
+      ...Object.entries(s.indices).map(([chave, valores]) => {
+        const estilo = ESTILO_INDICE[chave] ?? { cor: '#8FA3BC' }
+        return {
+          label: indiceLabel(chave),
+          data: valores,
+          borderColor: estilo.cor,
+          borderDash: estilo.tracejado,
+          borderWidth: 1.8,
+          pointRadius: 0,
+          tension: 0.3,
+        }
+      }),
     ]
     chart.update()
   })
@@ -85,6 +82,6 @@
 <div class="chart-box">
   <canvas
     bind:this={canvas}
-    aria-label="Gráfico de linha da rentabilidade acumulada da carteira, CDI e Ibovespa"
+    aria-label="Gráfico de linha da rentabilidade acumulada da carteira e dos benchmarks selecionados"
   ></canvas>
 </div>

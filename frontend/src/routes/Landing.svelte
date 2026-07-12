@@ -23,8 +23,10 @@
       '2026-01-01', '2026-02-01', '2026-03-01', '2026-04-01', '2026-05-01', '2026-06-01',
     ],
     carteira: [0, 1.2, 2.8, 3.5, 5.1, 6.0, 7.4, 8.2, 9.6, 11.3, 12.8, 14.2],
-    cdi: [0, 0.9, 1.8, 2.8, 3.7, 4.7, 5.6, 6.5, 7.4, 8.4, 9.3, 10.3],
-    ibovespa: [0, 2.1, 1.4, 3.9, 3.2, 5.6, 4.8, 7.5, 8.9, 10.2, 11.6, 12.4],
+    indices: {
+      cdi: [0, 0.9, 1.8, 2.8, 3.7, 4.7, 5.6, 6.5, 7.4, 8.4, 9.3, 10.3],
+      ibovespa: [0, 2.1, 1.4, 3.9, 3.2, 5.6, 4.8, 7.5, 8.9, 10.2, 11.6, 12.4],
+    },
   }
 
   const demoPosicoes: Posicao[] = [
@@ -177,7 +179,13 @@
         <div class="card">
           <h3>Carteira vs benchmarks</h3>
           <div class="sub">Rentabilidade acumulada no período</div>
-          <BenchmarkRuler carteira={14.2} cdi={10.3} ibovespa={12.4} />
+          <BenchmarkRuler
+            carteira={14.2}
+            indices={[
+              { chave: 'cdi', valor: 10.3 },
+              { chave: 'ibovespa', valor: 12.4 },
+            ]}
+          />
         </div>
       </div>
 

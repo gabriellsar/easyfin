@@ -11,15 +11,17 @@ export interface ResumoCarteira {
   quantidade_classes: number
 }
 
-/** Séries acumuladas (base 0% no primeiro mês). */
+/** Séries acumuladas (base 0% no primeiro mês). `indices` traz apenas os
+ * benchmarks solicitados (cdi, ibovespa). */
 export interface SerieRentabilidade {
   datas: string[]
   carteira: number[]
-  cdi: number[]
-  ibovespa: number[]
+  indices: Record<string, number[]>
 }
 
 export const obterResumo = () => api.get<ResumoCarteira>('/api/carteira/resumo/')
 
-export const obterRentabilidade = (meses = 12) =>
-  api.get<SerieRentabilidade>(`/api/carteira/rentabilidade/?meses=${meses}`)
+export const obterRentabilidade = (meses = 12, indices: string[] = ['cdi', 'ibovespa']) =>
+  api.get<SerieRentabilidade>(
+    `/api/carteira/rentabilidade/?meses=${meses}&indices=${indices.join(',')}`,
+  )

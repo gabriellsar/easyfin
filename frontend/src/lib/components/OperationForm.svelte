@@ -16,24 +16,15 @@
   let erro = $state<string | null>(null)
   let enviando = $state(false)
 
-  let posicaoAtual = $derived(carteira.posicoes.find((p) => p.ticker === ticker))
-
-  function prefillPreco() {
-    const cot = carteira.ativos.find((a) => a.ticker === ticker)?.cotacao_atual
-    if (cot) preco = Number(cot).toFixed(2)
-  }
-
-  $effect(() => {
-    if (!ticker && carteira.ativos.length) {
-      ticker = carteira.ativos[0].ticker
-      prefillPreco()
-    }
-  })
+  let tickerNormalizado = $derived(ticker.trim().toUpperCase())
+  let posicaoAtual = $derived(carteira.posicoes.find((p) => p.ticker === tickerNormalizado))
+  let ativoConhecido = $derived(carteira.ativos.find((a) => a.ticker === tickerNormalizado))
 
   async function submeter() {
     erro = null
     const qtd = Number(quantidade)
     const precoNum = Number(preco)
+    if (!tickerNormalizado) return void (erro = 'Informe o ticker do ativo.')
     if (!qtd || qtd <= 0) return void (erro = 'Informe uma quantidade maior que zero.')
     if (!precoNum || precoNum <= 0)
       return void (erro = 'Informe um preço unitário maior que zero.')
@@ -41,7 +32,7 @@
     if (tipo === 'venda') {
       const disponivel = Number(posicaoAtual?.quantidade ?? 0)
       if (qtd > disponivel) {
-        erro = `Quantidade indisponível: você possui ${fmtQty(disponivel)} un. de ${ticker}.`
+        erro = `Quantidade indisponível: você possui ${fmtQty(disponivel)} un. de ${tickerNormalizado}.`
         return
       }
     }
@@ -49,19 +40,23 @@
     enviando = true
     try {
       await carteira.registrar({
-        ticker,
+        ticker: tickerNormalizado,
         tipo,
         quantidade: String(qtd),
         preco_unitario: String(precoNum),
         data,
       })
       quantidade = ''
-      toast.mostrar(`${tipo === 'compra' ? 'Compra' : 'Venda'} de ${fmtQty(qtd)} ${ticker} registrada`)
+      toast.mostrar(
+        `${tipo === 'compra' ? 'Compra' : 'Venda'} de ${fmtQty(qtd)} ${tickerNormalizado} registrada`,
+      )
     } catch (e) {
-      erro =
-        e instanceof ApiError && e.status === 400
-          ? 'Operação recusada pelo servidor (verifique o saldo disponível).'
-          : 'Erro ao registrar a operação.'
+      // o back devolve a causa exata (ticker inexistente na B3, saldo, etc.)
+      const detalhe =
+        e instanceof ApiError && typeof (e.detalhe as any)?.detail === 'string'
+          ? (e.detalhe as any).detail
+          : null
+      erro = detalhe ?? 'Erro ao registrar a operação.'
     } finally {
       enviando = false
     }
@@ -95,16 +90,24 @@
 
   <div class="field">
     <label for="opAsset">Ativo</label>
-    <select id="opAsset" bind:value={ticker} onchange={prefillPreco}>
-      {#each carteira.ativos as a (a.ticker)}
-        <option value={a.ticker}>{a.ticker} — {a.nome}</option>
-      {/each}
-    </select>
+    <input
+      id="opAsset"
+      list="opAtivosSugestoes"
+      placeholder="ex.: PETR4, BBDC4, HGLG11"
+      bind:value={ticker}
+      autocomplete="off"
+      spellcheck="false"
+      style="text-transform: uppercase"
+    />
   </div>
   <div class="form-hint">
-    {posicaoAtual
-      ? `Posição atual: ${fmtQty(posicaoAtual.quantidade)} un. · PM ${fmtBRL(posicaoAtual.preco_medio)}`
-      : 'Sem posição neste ativo'}
+    {#if posicaoAtual}
+      Posição atual: {fmtQty(posicaoAtual.quantidade)} un. · PM {fmtBRL(posicaoAtual.preco_medio)}
+    {:else if tickerNormalizado && !ativoConhecido}
+      Ativo novo — será buscado na B3 ao registrar
+    {:else}
+      Sem posição neste ativo
+    {/if}
   </div>
 
   <div class="row-2">
